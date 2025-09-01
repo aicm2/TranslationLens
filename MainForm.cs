@@ -13,10 +13,16 @@ namespace TranslationLens
     public partial class MainForm : Form
     {
         private Panel panel;
+        // Formの端をドラッグしてサイズ変更するためのクラス(効かない)
+        private FormDragResizer formResizer;
 
         public MainForm()
         {
             InitializeComponent();
+
+            // Formのイニシャル処理で生成する
+            formResizer = new FormDragResizer(this, FormDragResizer.ResizeDirection.All, 8);
+
         }
 
         private void MainForm_Load(object sender, EventArgs e)
