@@ -1,0 +1,145 @@
+using System;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Support.UI;
+using System.Threading;
+
+class Program
+{
+    static void Main()
+    {
+        // ChromeDriver のパス（環境に合わせて変更）
+        string chromeDriverPath = @"C:\chromedriver";
+
+        // Chrome オプション
+        var options = new ChromeOptions();
+        options.AddArgument("--start-maximized"); // ウィンドウを最大化
+        // options.AddArgument("--headless"); // UIを見せたくない場合
+
+        // ChromeDriver 起動
+        using (var driver = new ChromeDriver(chromeDriverPath, options))
+        {
+            try
+            {
+                // Google翻訳の画像翻訳ページへ
+                driver.Navigate().GoToUrl("https://translate.google.com/?sl=auto&tl=en&op=docs");
+
+                // ファイルアップロード input を探す
+                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+                var uploadInput = wait.Until(drv => drv.FindElement(By.CssSelector("input[type='file']")));
+
+                // 画像ファイルを指定
+                uploadInput.SendKeys(@"C:\path\to\comic_page.png");
+
+                // 結果が表示されるまで少し待つ（簡易）
+                Thread.Sleep(5000);
+
+                // 結果のスクリーンショット
+                var resultContainer = driver.FindElement(By.CssSelector("div.result-container")); // 要調整
+                Screenshot screenshot = ((ITakesScreenshot)resultContainer).GetScreenshot();
+                screenshot.SaveAsFile(@"C:\path\to\translated_result.png", ScreenshotImageFormat.Png);
+
+                Console.WriteLine("翻訳結果を保存しました。");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("エラー: " + ex.Message);
+            }
+            finally
+            {
+                // Chrome を閉じる
+                driver.Quit();
+            }
+        }
+    }
+}
+------------------------------------------------------------------------------
+using Microsoft.Win32;
+
+string chromeVersion = "";
+using (RegistryKey key = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Google\Chrome\BLBeacon"))
+{
+    if (key != null)
+    {
+        object ver = key.GetValue("version");
+        if (ver != null)
+            chromeVersion = ver.ToString();
+    }
+}
+Console.WriteLine("Installed Chrome version: " + chromeVersion);
+
+-------------------------------------------------------------------------------------------------
+using WebDriverManager;
+using WebDriverManager.DriverConfigs.Impl;
+
+// 現在インストールされている Chrome のバージョンに合わせて ChromeDriver をダウンロード
+new DriverManager().SetUpDriver(new ChromeConfig());
+
+---------------------------------------------------------------------------------------------
+Selenium.WebDriver
+
+Selenium.WebDriver.ChromeDriver（直接指定でも可、WebDriverManagerを使うのでバージョン自動管理可能）
+
+WebDriverManager （rosolko/WebDriverManager.Net）
+
+--------------------------------------------------------------------------------------------------
+using System;
+using System.Threading;
+using OpenQA.Selenium;
+using OpenQA.Selenium.Chrome;
+using OpenQA.Selenium.Support.UI;
+using WebDriverManager;
+using WebDriverManager.DriverConfigs.Impl;
+
+class Program
+{
+    static void Main()
+    {
+        // ChromeDriver を Chrome のバージョンに合わせて自動セットアップ
+        new DriverManager().SetUpDriver(new ChromeConfig());
+
+        // Chrome オプション
+        var options = new ChromeOptions();
+        options.AddArgument("--start-maximized");
+        // options.AddArgument("--headless"); // ユーザーに見せない場合
+
+        using (var driver = new ChromeDriver(options))
+        {
+            try
+            {
+                // Google翻訳の画像翻訳ページ
+                driver.Navigate().GoToUrl("https://translate.google.com/?sl=auto&tl=en&op=docs");
+
+                var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
+
+                // ファイルアップロード input を取得
+                var uploadInput = wait.Until(drv => drv.FindElement(By.CssSelector("input[type='file']")));
+
+                // 画像ファイルを指定
+                string imagePath = @"C:\path\to\comic_page.png";
+                uploadInput.SendKeys(imagePath);
+
+                // 結果が表示されるまで待機
+                Thread.Sleep(5000); // 簡易待機。正式には WebDriverWait を使う
+
+                // 結果部分をスクリーンショット
+                var resultElement = driver.FindElement(By.CssSelector("div.result-container")); // ページ構造に応じて調整
+                Screenshot screenshot = ((ITakesScreenshot)resultElement).GetScreenshot();
+                screenshot.SaveAsFile(@"C:\path\to\translated_result.png", ScreenshotImageFormat.Png);
+
+                Console.WriteLine("翻訳結果を保存しました。");
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("エラー: " + ex.Message);
+            }
+            finally
+            {
+                // Chrome を閉じる
+                driver.Quit();
+            }
+        }
+    }
+}
+
+

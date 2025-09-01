@@ -32,6 +32,7 @@ namespace TranslationLens
             this.MenuStrip1 = new System.Windows.Forms.MenuStrip();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.MainMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.ScreenShotMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.MenuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -52,9 +53,18 @@ namespace TranslationLens
             // 
             // MainMenu
             // 
+            this.MainMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.ScreenShotMenu});
             this.MainMenu.Name = "MainMenu";
             this.MainMenu.Size = new System.Drawing.Size(59, 23);
             this.MainMenu.Text = "メニュー";
+            // 
+            // ScreenShotMenu
+            // 
+            this.ScreenShotMenu.Name = "ScreenShotMenu";
+            this.ScreenShotMenu.Size = new System.Drawing.Size(180, 24);
+            this.ScreenShotMenu.Text = "撮影（テスト用）";
+            this.ScreenShotMenu.Click += new System.EventHandler(this.ScreenShotMenu_Click);
             // 
             // MainForm
             // 
@@ -78,5 +88,6 @@ namespace TranslationLens
         private System.Windows.Forms.MenuStrip MenuStrip1;
         private System.Windows.Forms.ToolStripMenuItem MainMenu;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
+        private System.Windows.Forms.ToolStripMenuItem ScreenShotMenu;
     }
 }
