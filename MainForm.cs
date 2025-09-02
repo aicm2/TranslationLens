@@ -75,5 +75,19 @@ namespace TranslationLens
             // 例：ファイルに保存する場合
             bmp.Save("screenshot.jpg", System.Drawing.Imaging.ImageFormat.Jpeg);
         }
+
+        /// <summary>
+        /// 翻訳（テスト）
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">p</param>
+        private void MenuTransLate_Click(object sender, EventArgs e)
+        {
+            var file = "screenshot.jpg";
+
+            var path = this.processor.Translate(file);
+
+
+        }
     }
 }

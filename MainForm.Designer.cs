@@ -30,9 +30,10 @@ namespace TranslationLens
         {
             this.components = new System.ComponentModel.Container();
             this.MenuStrip1 = new System.Windows.Forms.MenuStrip();
-            this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.MainMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ScreenShotMenu = new System.Windows.Forms.ToolStripMenuItem();
+            this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.MenuTransrate = new System.Windows.Forms.ToolStripMenuItem();
             this.MenuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -46,15 +47,11 @@ namespace TranslationLens
             this.MenuStrip1.TabIndex = 0;
             this.MenuStrip1.Text = "メニュー";
             // 
-            // contextMenuStrip1
-            // 
-            this.contextMenuStrip1.Name = "contextMenuStrip1";
-            this.contextMenuStrip1.Size = new System.Drawing.Size(61, 4);
-            // 
             // MainMenu
             // 
             this.MainMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.ScreenShotMenu});
+            this.ScreenShotMenu,
+            this.MenuTransrate});
             this.MainMenu.Name = "MainMenu";
             this.MainMenu.Size = new System.Drawing.Size(59, 23);
             this.MainMenu.Text = "メニュー";
@@ -65,6 +62,18 @@ namespace TranslationLens
             this.ScreenShotMenu.Size = new System.Drawing.Size(180, 24);
             this.ScreenShotMenu.Text = "撮影（テスト用）";
             this.ScreenShotMenu.Click += new System.EventHandler(this.ScreenShotMenu_Click);
+            // 
+            // contextMenuStrip1
+            // 
+            this.contextMenuStrip1.Name = "contextMenuStrip1";
+            this.contextMenuStrip1.Size = new System.Drawing.Size(61, 4);
+            // 
+            // MenuTransrate
+            // 
+            this.MenuTransrate.Name = "MenuTransrate";
+            this.MenuTransrate.Size = new System.Drawing.Size(180, 24);
+            this.MenuTransrate.Text = "翻訳（テスト用）";
+            this.MenuTransrate.Click += new System.EventHandler(this.MenuTransLate_Click);
             // 
             // MainForm
             // 
@@ -89,5 +98,6 @@ namespace TranslationLens
         private System.Windows.Forms.ToolStripMenuItem MainMenu;
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
         private System.Windows.Forms.ToolStripMenuItem ScreenShotMenu;
+        private System.Windows.Forms.ToolStripMenuItem MenuTransrate;
     }
 }
