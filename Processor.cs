@@ -1,15 +1,10 @@
-using OpenQA.Selenium;
-using OpenQA.Selenium.Chrome;
-using OpenQA.Selenium.Support.UI;
 using System;
 using System.Drawing;
-using System.Threading;
-using WebDriverManager;
-using WebDriverManager.DriverConfigs.Impl;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Threading;
 using System.Windows.Forms; // これを追加
-
+using Tesseract;
 
 namespace TranslationLens
 {
@@ -43,72 +38,51 @@ namespace TranslationLens
             //my_bmp.Save(filename(""), System.Drawing.Imaging.ImageFormat.Jpeg);
         }
 
-        internal string Translate(string filePath)
+        /// <summary>
+        /// Bitmap から文字列を取得
+        /// https://github.com/tesseract-ocr/tessdata_best?utm_source=chatgpt.com
+        /// </summary>
+        /// <param name="bitmap">OCR対象の画像</param>
+        /// <returns>抽出テキスト</returns>
+        internal string GetTextFromImage(Bitmap bitmap)
         {
-            // ChromeDriver を Chrome のバージョンに合わせて自動セットアップ
-            new DriverManager().SetUpDriver(new ChromeConfig());
+            // tessdata フォルダのフルパス
+            string langPath = Path.GetFullPath("tessdata");
 
-            // Chrome オプション
-            var options = new ChromeOptions();
-            options.AddArgument("--start-maximized");
-            // options.AddArgument("--headless"); // UI が必要なのでオフ
-
-            using (var driver = new ChromeDriver(options))
+            if(!Directory.Exists(langPath))
             {
-                try
+                throw new FileNotFoundException("言語フォルダが見つかりません: " + langPath);
+            }
+
+            var dataPath = Path.Combine(langPath, "jpn.traineddata");
+            if(!File.Exists(dataPath))
+            {
+                throw new FileNotFoundException("言語データが見つかりません: " + dataPath);
+            }
+
+            dataPath = Path.Combine(langPath, "eng.traineddata");
+            if (!File.Exists(dataPath))
+            {
+                throw new FileNotFoundException("言語データが見つかりません: " + dataPath);
+            }
+
+            // OCR用の前処理
+            bitmap = OcrHelper.GetBitmap(bitmap);
+
+            // OCR 実行
+            var img = PixConverter.ToPix(bitmap);
+            // TesseractEngine の初期化
+            using (var engine = new TesseractEngine(langPath, "eng+jpn", EngineMode.LstmOnly))
+            {
+                using (var page = engine.Process(img))
                 {
-                    var imagePath = Path.GetFullPath(filePath);
+                    string text = page.GetText();
 
-                    // Google翻訳のドキュメント翻訳ページを開く
-                    driver.Navigate().GoToUrl("https://translate.google.com/?sl=auto&tl=en&op=docs");
-
-                    var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
-
-                    // 「ファイルを選択」ボタンをクリックして OS ダイアログを開く
-                    var selectButton = wait.Until(drv => drv.FindElement(By.CssSelector("button[jsname='V67aGc']")));
-                    selectButton.Click();
-
-                    // ★ここで AutoIt や UIAutomation を呼び出して OS ダイアログ操作★
-                    // AutoIt の例：
-                    // System.Diagnostics.Process.Start(@"C:\path\to\upload.au3");
-                    // upload.au3 の中でファイルパスを入力して Enter
-
-                    // ダイアログ操作が完了するまで少し待つ
-                    Thread.Sleep(3000);
-
-                    // 翻訳結果の表示を待つ
-                    var resultElement = new WebDriverWait(driver, TimeSpan.FromSeconds(30)).Until(drv =>
-                    {
-                        try
-                        {
-                            // Google 翻訳は結果が iframe 内に出る場合もあるので注意
-                            var elem = drv.FindElement(By.CssSelector("div.result-container"));
-                            return elem.Displayed ? elem : null;
-                        }
-                        catch
-                        {
-                            return null;
-                        }
-                    });
-
-                    // 結果のスクリーンショットを保存
-                    Screenshot screenshot = ((ITakesScreenshot)driver).GetScreenshot();
-                    var savePath = Path.Combine(Environment.CurrentDirectory, "translated_result.png");
-                    screenshot.SaveAsFile(savePath);
-
-                    return savePath;
-                }
-                catch (Exception ex)
-                {
-                    Logger.Error("エラー: " + ex.Message);
-                    MessageBox.Show("エラーが発生しました: " + ex.Message);
-                    return string.Empty;
-                }
-                finally
-                {
-                    driver.Quit();
+                    return text;
                 }
             }
+
+            return null; ;
         }
     }
 }

@@ -3,7 +3,9 @@
     <startup> 
         <supportedRuntime version="v4.0" sku=".NETFramework,Version=v4.7.2" />
     </startup>
-    <system.diagnostics>
+</configuration>
+
+<system.diagnostics>
 	<sources>
 		<source name="Tesseract" switchValue="Verbose">
 			<listeners>
@@ -25,5 +27,3 @@
 		-->
 	</sharedListeners>
 </system.diagnostics>
-</configuration>
-

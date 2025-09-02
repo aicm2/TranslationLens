@@ -83,11 +83,28 @@ namespace TranslationLens
         /// <param name="e">p</param>
         private void MenuTransLate_Click(object sender, EventArgs e)
         {
-            var file = "screenshot.jpg";
 
-            var path = this.processor.Translate(file);
+            try
+            {
+                var bmp = new Bitmap("screenshot.bmp");
+                var cb = new ComicBubbleTranslator();
+                var items = cb.TranslateBubbles("screenshot.bmp");
+
+                var index = 0;
+                foreach(var b in items){
+
+                b.Save($"translated_output{index++}.png", System.Drawing.Imaging.ImageFormat.Png);
+                }
+
+                var myString = this.processor.GetTextFromImage(bmp);
+
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
 
 
+            }
         }
     }
 }
