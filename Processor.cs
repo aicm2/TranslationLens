@@ -45,72 +45,70 @@ namespace TranslationLens
 
         internal string Translate(string filePath)
         {
-
             // ChromeDriver を Chrome のバージョンに合わせて自動セットアップ
             new DriverManager().SetUpDriver(new ChromeConfig());
 
             // Chrome オプション
             var options = new ChromeOptions();
             options.AddArgument("--start-maximized");
-            // options.AddArgument("--headless"); // ユーザーに見せない場合
+            // options.AddArgument("--headless"); // UI が必要なのでオフ
 
             using (var driver = new ChromeDriver(options))
             {
                 try
                 {
-                    // 画像ファイルを指定
                     var imagePath = Path.GetFullPath(filePath);
 
-                    // Google翻訳の画像翻訳ページ
+                    // Google翻訳のドキュメント翻訳ページを開く
                     driver.Navigate().GoToUrl("https://translate.google.com/?sl=auto&tl=en&op=docs");
 
                     var wait = new WebDriverWait(driver, TimeSpan.FromSeconds(10));
 
-                    // input[type=file] を探す
-                    var uploadInput = wait.Until(drv => drv.FindElement(By.CssSelector("input[type='file']")));
+                    // 「ファイルを選択」ボタンをクリックして OS ダイアログを開く
+                    var selectButton = wait.Until(drv => drv.FindElement(By.CssSelector("button[jsname='V67aGc']")));
+                    selectButton.Click();
 
-                    // hidden を解除
-                    IJavaScriptExecutor js = (IJavaScriptExecutor)driver;
-                    js.ExecuteScript(
-                        "arguments[0].style.display='block'; arguments[0].style.visibility='visible';",
-                        uploadInput
-                    );
+                    // ★ここで AutoIt や UIAutomation を呼び出して OS ダイアログ操作★
+                    // AutoIt の例：
+                    // System.Diagnostics.Process.Start(@"C:\path\to\upload.au3");
+                    // upload.au3 の中でファイルパスを入力して Enter
 
-                    // ファイルを送信
-                    uploadInput.SendKeys(imagePath);
+                    // ダイアログ操作が完了するまで少し待つ
+                    Thread.Sleep(3000);
 
-                    // 結果部分をスクリーンショット
-                    var resultElement = wait.Until(drv =>
+                    // 翻訳結果の表示を待つ
+                    var resultElement = new WebDriverWait(driver, TimeSpan.FromSeconds(30)).Until(drv =>
                     {
                         try
                         {
+                            // Google 翻訳は結果が iframe 内に出る場合もあるので注意
                             var elem = drv.FindElement(By.CssSelector("div.result-container"));
-                            return elem.Displayed ? elem : null; // 表示されるまで null を返す
+                            return elem.Displayed ? elem : null;
                         }
-                        catch (NoSuchElementException)
+                        catch
                         {
                             return null;
                         }
                     });
 
-                    Screenshot screenshot = ((ITakesScreenshot)resultElement).GetScreenshot();
-                    screenshot.SaveAsFile("translated_result.png"); // ✅
+                    // 結果のスクリーンショットを保存
+                    Screenshot screenshot = ((ITakesScreenshot)driver).GetScreenshot();
+                    var savePath = Path.Combine(Environment.CurrentDirectory, "translated_result.png");
+                    screenshot.SaveAsFile(savePath);
 
-                    return "translated_result.png";
+                    return savePath;
                 }
                 catch (Exception ex)
                 {
                     Logger.Error("エラー: " + ex.Message);
                     MessageBox.Show("エラーが発生しました: " + ex.Message);
+                    return string.Empty;
                 }
                 finally
                 {
-                    // Chrome を閉じる
                     driver.Quit();
                 }
-                return string.Empty;
             }
-
         }
     }
 }
