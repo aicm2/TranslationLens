@@ -20,6 +20,9 @@ namespace TranslationLens
         // ロガーのインスタンスを作成
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
+        // トークン保存場所
+        private string credPath;
+
         private readonly string gASURL = "https://script.google.com/macros/s/AKfycbwIbppF5BsIZ7BkewR3pXFN_eK0ExnUpy90GNV2JGpgc-hYs0itzDkcDVWdsa_CwEVEFA/exec";
 
         private readonly string clientId = "629337539653-pdu7usoru0lb4e7fg83du66i54ph7e4v.apps.googleusercontent.com";
@@ -31,6 +34,21 @@ namespace TranslationLens
             String my_file = DateTime.Now.ToString("hhmmss") + DateTime.Now.Millisecond.ToString() + ".jpg";
             return (my_dir + val + my_file);
 
+        }
+
+        internal Processor()
+        {
+
+            // 保存先フォルダだけ指定する
+            string appFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "TranslationLens"
+            );
+// フォルダがなければ作成
+            Directory.CreateDirectory(appFolder);
+
+            this.credPath = appFolder;
+            Logger.Info("credPath: " + this.credPath);
         }
 
         /// <summary>
@@ -50,69 +68,74 @@ namespace TranslationLens
             //my_bmp.Save(filename(""), System.Drawing.Imaging.ImageFormat.Jpeg);
         }
 
+        /// <summary>
+        /// 画像をGoogle DriveにアップロードしてOCRした結果を返す
+        /// token.json が既にある前提
+        /// </summary>
+        /// <param name="imagePath">ローカル画像パス</param>
+        /// <returns>OCR結果文字列</returns>
         internal async Task<string> OCRByGoogle(string imagePath)
         {
+            // token.json 保存フォルダ（ディレクトリ単位で指定）
+            string appFolder = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                "TranslationLens"
+            );
+            Directory.CreateDirectory(appFolder);
 
-            string gasUrl = this.gASURL;
+            Logger.Debug("Using token folder: " + appFolder);
 
-            using (var client = new HttpClient())
-            using (var content = new MultipartFormDataContent())
+            // 既存トークンを利用して DriveService 初期化
+            UserCredential credential;
+            using (var stream = new FileStream(this.credPath, FileMode.Open, FileAccess.Read))
             {
-                var fileBytes = File.ReadAllBytes(imagePath);
-                var byteContent = new ByteArrayContent(fileBytes);
-                byteContent.Headers.ContentType =
-                            new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
-
-                content.Add(byteContent, "file", "sample.png");
-
-                var response = await client.PostAsync(gasUrl, content);
-                string result = await response.Content.ReadAsStringAsync();
-
-                return result;
-            }
-        }
-
-/// <summary>
-/// Bitmap から文字列を取得
-/// https://github.com/tesseract-ocr/tessdata_best?utm_source=chatgpt.com
-/// </summary>
-/// <param name="bitmap">OCR対象の画像</param>
-/// <returns>抽出テキスト</returns>
-internal string GetTextFromImage(Bitmap bitmap)
-        {
-            // tessdata フォルダのフルパス
-            string langPath = Path.GetFullPath("tessdata");
-
-            if(!Directory.Exists(langPath))
-            {
-                throw new FileNotFoundException("言語フォルダが見つかりません: " + langPath);
+                credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+                    GoogleClientSecrets.Load(stream).Secrets,
+                    new[] { DriveService.Scope.DriveFile },
+                    "user",
+                    CancellationToken.None,
+                    new FileDataStore(appFolder, true), // <- ディレクトリ単位
+                    new Google.Apis.Auth.OAuth2.LocalServerCodeReceiver()
+                );
             }
 
-            var dataPath = Path.Combine(langPath, "jpn.traineddata");
-            if(!File.Exists(dataPath))
+            var service = new DriveService(new BaseClientService.Initializer()
             {
-                throw new FileNotFoundException("言語データが見つかりません: " + dataPath);
-            }
+                HttpClientInitializer = credential,
+                ApplicationName = "OCR Test App",
+            });
 
-            dataPath = Path.Combine(langPath, "eng.traineddata");
-            if (!File.Exists(dataPath))
+            // Google Docs化（OCR有効）用のメタデータ
+            var fileMetadata = new Google.Apis.Drive.v3.Data.File
             {
-                throw new FileNotFoundException("言語データが見つかりません: " + dataPath);
-            }
+                Name = "tempOCR_" + Guid.NewGuid(),
+                MimeType = "application/vnd.google-apps.document"
+            };
 
-            // OCR用の前処理
-            bitmap = OcrHelper.GetBitmap(bitmap);
-
-            // OCR 実行
-            var img = PixConverter.ToPix(bitmap);
-            // TesseractEngine の初期化
-            using (var engine = new TesseractEngine(langPath, "eng+jpn", EngineMode.LstmOnly))
+            using (var stream = new FileStream(imagePath, FileMode.Open))
             {
-                using (var page = engine.Process(img))
+                var request = service.Files.Create(fileMetadata, stream, "image/png");
+                request.Fields = "id"; // ファイルIDだけ取得
+                await request.UploadAsync(); // asyncに
+
+                var file = request.ResponseBody;
+
+                // OCR結果をテキストで取得
+                var exportRequest = service.Files.Export(file.Id, "text/plain");
+                using (var ms = new MemoryStream())
                 {
-                    string text = page.GetText();
+                    await exportRequest.DownloadAsync(ms);
+                    ms.Position = 0;
 
-                    return text;
+                    using (var reader = new StreamReader(ms))
+                    {
+                        string ocrText = await reader.ReadToEndAsync();
+
+                        // 一時ファイル削除
+                        await service.Files.Delete(file.Id).ExecuteAsync();
+
+                        return ocrText;
+                    }
                 }
             }
         }
@@ -130,9 +153,6 @@ internal string GetTextFromImage(Bitmap bitmap)
             // 使用するスコープ
             string[] scopes = { "https://www.googleapis.com/auth/drive.file" };
 
-            // トークン保存場所
-            var credPath = "token.json";
-
             var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
                 new ClientSecrets
                 {
@@ -142,7 +162,7 @@ internal string GetTextFromImage(Bitmap bitmap)
                 scopes,
                 "user", // ユーザー識別子
                 CancellationToken.None,
-                new FileDataStore(credPath, true),
+                new FileDataStore(this.credPath, true),
                 new Google.Apis.Auth.OAuth2.LocalServerCodeReceiver() // ←任意ユーザー選択可能
             );
 
@@ -150,13 +170,12 @@ internal string GetTextFromImage(Bitmap bitmap)
             Console.WriteLine("ログインユーザー: " + credential.UserId);
             Console.WriteLine("アクセストークン: " + credential.Token.AccessToken);
 
+            var dirInfo = new DirectoryInfo(this.credPath);
+            dirInfo.Attributes &= ~FileAttributes.ReadOnly;
+
             Console.WriteLine("Enterで終了");
             Console.ReadLine();
 
-        }
-        internal void OAuth()
-        {
-            throw new NotImplementedException();
         }
     }
 }
