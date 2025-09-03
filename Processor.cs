@@ -22,7 +22,7 @@ namespace TranslationLens
 
         private readonly string gASURL = "https://script.google.com/macros/s/AKfycbwIbppF5BsIZ7BkewR3pXFN_eK0ExnUpy90GNV2JGpgc-hYs0itzDkcDVWdsa_CwEVEFA/exec";
 
-        private readonly string clientId = "629337539653-pdu7usoru0lb4e7fg83du66i54ph7e4v.apps.googleusercontent.com\r\n";
+        private readonly string clientId = "629337539653-pdu7usoru0lb4e7fg83du66i54ph7e4v.apps.googleusercontent.com";
         private readonly string clientSecret = "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";
 
         String filename(String val)
@@ -123,29 +123,36 @@ internal string GetTextFromImage(Bitmap bitmap)
         /// <returns>Task</returns>
         internal async Task OAuthByGoogle()
         {
-            string[] scopes = { DriveService.Scope.DriveFile };
+            // OAuth 2.0 クライアント情報
+            var clientId = this.clientId;
+            var clientSecret = this.clientSecret;
+
+            // 使用するスコープ
+            string[] scopes = { "https://www.googleapis.com/auth/drive.file" };
+
+            // トークン保存場所
             var credPath = "token.json";
 
             var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
                 new ClientSecrets
                 {
-                    ClientId = this.clientId,
-                    ClientSecret = this.clientSecret,
+                    ClientId = clientId,
+                    ClientSecret = clientSecret
                 },
                 scopes,
-                "user",
+                "user", // ユーザー識別子
                 CancellationToken.None,
                 new FileDataStore(credPath, true),
-                new LocalServerCodeReceiver() // ← ここを追加
+                new Google.Apis.Auth.OAuth2.LocalServerCodeReceiver() // ←任意ユーザー選択可能
             );
 
-            var service = new DriveService(new BaseClientService.Initializer()
-            {
-                HttpClientInitializer = credential,
-                ApplicationName = "OCR Test App",
-            });
+            Console.WriteLine("OAuth認証完了！");
+            Console.WriteLine("ログインユーザー: " + credential.UserId);
+            Console.WriteLine("アクセストークン: " + credential.Token.AccessToken);
 
-            Console.WriteLine("OAuth認証完了。Drive APIを操作可能です。");
+            Console.WriteLine("Enterで終了");
+            Console.ReadLine();
+
         }
         internal void OAuth()
         {
