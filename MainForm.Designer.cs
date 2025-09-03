@@ -73,7 +73,7 @@ namespace TranslationLens
             this.MenuTransrate.Name = "MenuTransrate";
             this.MenuTransrate.Size = new System.Drawing.Size(180, 24);
             this.MenuTransrate.Text = "翻訳（テスト用）";
-            this.MenuTransrate.Click += new System.EventHandler(this.MenuTransLate_Click);
+            this.MenuTransrate.Click += new System.EventHandler(MenuTransLate_Click);
             // 
             // MainForm
             // 

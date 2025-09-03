@@ -1,8 +1,15 @@
+using Google.Apis.Auth.OAuth2;
+using Google.Apis.Drive.v3;
+using Google.Apis.Services;
+using Google.Apis.Util.Store;
 using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Net.Http;
+using System.Security.Policy;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Forms; // これを追加
 using Tesseract;
 
@@ -12,6 +19,11 @@ namespace TranslationLens
     {
         // ロガーのインスタンスを作成
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+        private readonly string gASURL = "https://script.google.com/macros/s/AKfycbwIbppF5BsIZ7BkewR3pXFN_eK0ExnUpy90GNV2JGpgc-hYs0itzDkcDVWdsa_CwEVEFA/exec";
+
+        private readonly string clientId = "629337539653-pdu7usoru0lb4e7fg83du66i54ph7e4v.apps.googleusercontent.com\r\n";
+        private readonly string clientSecret = "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";
 
         String filename(String val)
         {
@@ -38,13 +50,35 @@ namespace TranslationLens
             //my_bmp.Save(filename(""), System.Drawing.Imaging.ImageFormat.Jpeg);
         }
 
-        /// <summary>
-        /// Bitmap から文字列を取得
-        /// https://github.com/tesseract-ocr/tessdata_best?utm_source=chatgpt.com
-        /// </summary>
-        /// <param name="bitmap">OCR対象の画像</param>
-        /// <returns>抽出テキスト</returns>
-        internal string GetTextFromImage(Bitmap bitmap)
+        internal async Task<string> OCRByGoogle(string imagePath)
+        {
+
+            string gasUrl = this.gASURL;
+
+            using (var client = new HttpClient())
+            using (var content = new MultipartFormDataContent())
+            {
+                var fileBytes = File.ReadAllBytes(imagePath);
+                var byteContent = new ByteArrayContent(fileBytes);
+                byteContent.Headers.ContentType =
+                            new System.Net.Http.Headers.MediaTypeHeaderValue("image/png");
+
+                content.Add(byteContent, "file", "sample.png");
+
+                var response = await client.PostAsync(gasUrl, content);
+                string result = await response.Content.ReadAsStringAsync();
+
+                return result;
+            }
+        }
+
+/// <summary>
+/// Bitmap から文字列を取得
+/// https://github.com/tesseract-ocr/tessdata_best?utm_source=chatgpt.com
+/// </summary>
+/// <param name="bitmap">OCR対象の画像</param>
+/// <returns>抽出テキスト</returns>
+internal string GetTextFromImage(Bitmap bitmap)
         {
             // tessdata フォルダのフルパス
             string langPath = Path.GetFullPath("tessdata");
@@ -81,8 +115,41 @@ namespace TranslationLens
                     return text;
                 }
             }
+        }
 
-            return null; ;
+        /// <summary>
+        /// google OAuth認証処理
+        /// </summary>
+        /// <returns>Task</returns>
+        internal async Task OAuthByGoogle()
+        {
+            string[] scopes = { DriveService.Scope.DriveFile };
+            var credPath = "token.json";
+
+            var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+                new ClientSecrets
+                {
+                    ClientId = this.clientId,
+                    ClientSecret = this.clientSecret,
+                },
+                scopes,
+                "user",
+                CancellationToken.None,
+                new FileDataStore(credPath, true),
+                new LocalServerCodeReceiver() // ← ここを追加
+            );
+
+            var service = new DriveService(new BaseClientService.Initializer()
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = "OCR Test App",
+            });
+
+            Console.WriteLine("OAuth認証完了。Drive APIを操作可能です。");
+        }
+        internal void OAuth()
+        {
+            throw new NotImplementedException();
         }
     }
 }

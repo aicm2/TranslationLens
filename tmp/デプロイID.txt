@@ -3,3 +3,7 @@ AKfycbwIbppF5BsIZ7BkewR3pXFN_eK0ExnUpy90GNV2JGpgc-hYs0itzDkcDVWdsa_CwEVEFA
 WebID
 
 https://script.google.com/macros/s/AKfycbwIbppF5BsIZ7BkewR3pXFN_eK0ExnUpy90GNV2JGpgc-hYs0itzDkcDVWdsa_CwEVEFA/exec
+
+
+Auth ID
+629337539653-pdu7usoru0lb4e7fg83du66i54ph7e4v.apps.googleusercontent.com
