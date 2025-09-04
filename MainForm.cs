@@ -95,7 +95,9 @@ namespace TranslationLens
             try
             {
                 var imagePath = Path.GetFullPath("screenshot.png");
-                var myString = await this.processor.OCRByGoogle(imagePath);
+                //                var myString = await this.processor.OCRByGoogle(imagePath);
+                var myString = await this.processor.OCRByGoogleTest(imagePath);
+
                 Console.WriteLine($"result = {myString}");
                 return myString;
 
