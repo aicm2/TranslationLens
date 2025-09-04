@@ -12,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms; // これを追加
 using Tesseract;
+using static Google.Apis.Requests.BatchRequest;
 
 namespace TranslationLens
 {
@@ -40,11 +41,15 @@ namespace TranslationLens
         {
 
             // 保存先フォルダだけ指定する
-            string appFolder = Path.Combine(
+            var appFolder = Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
                 "TranslationLens"
             );
-// フォルダがなければ作成
+
+            appFolder = @"c:\tmp\TranslationLens";
+
+
+            // フォルダがなければ作成
             Directory.CreateDirectory(appFolder);
 
             this.credPath = appFolder;
@@ -76,49 +81,57 @@ namespace TranslationLens
         /// <returns>OCR結果文字列</returns>
         internal async Task<string> OCRByGoogle(string imagePath)
         {
-            // token.json 保存フォルダ（ディレクトリ単位で指定）
-            string appFolder = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                "TranslationLens"
-            );
-            Directory.CreateDirectory(appFolder);
+            // 既存トークンを使用して DriveService を初期化
+            string[] scopes = { DriveService.Scope.Drive, DriveService.Scope.DriveFile };
 
-            Logger.Debug("Using token folder: " + appFolder);
-
-            // 既存トークンを利用して DriveService 初期化
             UserCredential credential;
-            using (var stream = new FileStream(this.credPath, FileMode.Open, FileAccess.Read))
+            using (var stream = new MemoryStream()) // ダミーストリームでロードしない場合は null でも可
             {
                 credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                    GoogleClientSecrets.Load(stream).Secrets,
-                    new[] { DriveService.Scope.DriveFile },
+                    new ClientSecrets
+                    {
+                        ClientId = this.clientId,
+                        ClientSecret = this.clientSecret,
+                    }, // OAuthByGoogle() で取得済みならダミーでOK
+                    scopes,
                     "user",
                     CancellationToken.None,
-                    new FileDataStore(appFolder, true), // <- ディレクトリ単位
-                    new Google.Apis.Auth.OAuth2.LocalServerCodeReceiver()
+                    new FileDataStore(this.credPath, true)
                 );
             }
 
-            var service = new DriveService(new BaseClientService.Initializer()
+            var service = new DriveService(new BaseClientService.Initializer
             {
                 HttpClientInitializer = credential,
-                ApplicationName = "OCR Test App",
+                ApplicationName = "OCR Test App"
             });
 
-            // Google Docs化（OCR有効）用のメタデータ
+            // Google Docs 化（OCR用）
             var fileMetadata = new Google.Apis.Drive.v3.Data.File
             {
                 Name = "tempOCR_" + Guid.NewGuid(),
                 MimeType = "application/vnd.google-apps.document"
             };
 
-            using (var stream = new FileStream(imagePath, FileMode.Open))
+            using (var stream2 = new FileStream(imagePath, FileMode.Open, FileAccess.Read))
             {
-                var request = service.Files.Create(fileMetadata, stream, "image/png");
-                request.Fields = "id"; // ファイルIDだけ取得
-                await request.UploadAsync(); // asyncに
+                var request = service.Files.Create(fileMetadata, stream2, "image/png");
+                request.Fields = "id";
 
-                var file = request.ResponseBody;
+                Google.Apis.Drive.v3.Data.File file = null; // try の外で宣言
+
+                try
+                {
+                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    await request.UploadAsync(cts.Token);
+                    file = request.ResponseBody;
+                }
+                catch (Google.GoogleApiException ex)
+                {
+                    Console.WriteLine($"StatusCode: {ex.HttpStatusCode}");
+                    Console.WriteLine($"Error: {ex.Error.Message}");
+                    throw;
+                }
 
                 // OCR結果をテキストで取得
                 var exportRequest = service.Files.Export(file.Id, "text/plain");
