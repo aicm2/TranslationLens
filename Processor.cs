@@ -128,6 +128,84 @@ namespace TranslationLens
         /// </summary>
         /// <param name="imagePath">ローカル画像パス</param>
         /// <returns>OCR結果文字列</returns>
+        internal async Task<string> OCRByGoogle(string imagePath)
+        {
+            // スコープ設定
+            string[] scopes = { DriveService.Scope.Drive, DriveService.Scope.DriveFile };
+
+            // 既存トークンを使って認証
+            UserCredential credential;
+            credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
+                new ClientSecrets
+                {
+                    ClientId = this.clientId,
+                    ClientSecret = this.clientSecret,
+                },
+                scopes,
+                "user",
+                CancellationToken.None,
+                new FileDataStore(this.credPath, true)
+            ).ConfigureAwait(false); // GUIスレッドデッドロック回避
+
+            var service = new DriveService(new BaseClientService.Initializer
+            {
+                HttpClientInitializer = credential,
+                ApplicationName = "OCR Test App"
+            });
+
+            // Google Docs 化（OCR用）
+            var fileMetadata = new Google.Apis.Drive.v3.Data.File
+            {
+                Name = "tempOCR_" + Guid.NewGuid(),
+                MimeType = "application/vnd.google-apps.document"
+            };
+
+            Google.Apis.Drive.v3.Data.File file;
+
+            using (var stream = new FileStream(imagePath, FileMode.Open, FileAccess.Read))
+            {
+                var request = service.Files.Create(fileMetadata, stream, "image/png");
+                request.Fields = "id";
+
+                try
+                {
+                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                    await request.UploadAsync(cts.Token).ConfigureAwait(false);
+                    file = request.ResponseBody;
+                }
+                catch (Google.GoogleApiException ex)
+                {
+                    Console.WriteLine($"StatusCode: {ex.HttpStatusCode}");
+                    Console.WriteLine($"Error: {ex.Error.Message}");
+                    throw;
+                }
+            }
+
+            // OCR結果をテキストで取得
+            var exportRequest = service.Files.Export(file.Id, "text/plain");
+            using (var ms = new MemoryStream())
+            {
+                await exportRequest.DownloadAsync(ms).ConfigureAwait(false);
+                ms.Position = 0;
+
+                using (var reader = new StreamReader(ms))
+                {
+                    string ocrText = await reader.ReadToEndAsync().ConfigureAwait(false);
+
+                    // 一時ファイル削除
+                    await service.Files.Delete(file.Id).ExecuteAsync().ConfigureAwait(false);
+
+                    return ocrText;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 画像をGoogle DriveにアップロードしてOCRした結果を返す（通信テスト用）
+        /// token.json が既にある前提
+        /// </summary>
+        /// <param name="imagePath">ローカル画像パス</param>
+        /// <returns>OCR結果文字列</returns>
         internal async Task<string> OCRByGoogleTest(string imagePath)
         {
             // TLS 設定はアプリ起動時に1回で十分←設定済

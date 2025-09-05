@@ -104,8 +104,11 @@ namespace TranslationLens
 
             var myString = await CallOcr(); // これだけで OK
 
-            Console.WriteLine($"result = {myString}");
-            MessageBox.Show("OK");
+            this.Invoke((Action)(() =>
+            {
+                Console.WriteLine($"result = {myString}");
+                MessageBox.Show("OK");
+            }));
         }
 
         private async Task<string> CallOcr()
@@ -113,9 +116,9 @@ namespace TranslationLens
             try
             {
                 var imagePath = Path.GetFullPath("screenshot.png");
-                //                var myString = await this.processor.OCRByGoogle(imagePath);
+                var myString = await this.processor.OCRByGoogle(imagePath);
 
-                var myString = await this.processor.OCRByGoogleTest(imagePath);
+               // var myString = await this.processor.OCRByGoogleTest(imagePath);
 
                 Console.WriteLine($"result = {myString}");
                 return myString;
