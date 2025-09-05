@@ -85,7 +85,25 @@ namespace TranslationLens
         /// <param name="e">p</param>
         private void MenuTransLate_Click(object sender, EventArgs e)
         {
-           var myString = CallOcr().GetAwaiter().GetResult(); 
+            this.Cursor = Cursors.WaitCursor;
+
+             var myString = CallOcr().GetAwaiter().GetResult();
+
+            Console.WriteLine($"result = {myString}");
+            MessageBox.Show("OK");
+        }
+
+        /// <summary>
+        /// 翻訳（テスト）同期版
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">e</param>
+        private async void MenuTransLate_Click_Async(object sender, EventArgs e)
+        {
+            this.Cursor = Cursors.WaitCursor;
+
+            var myString = await CallOcr(); // これだけで OK
+
             Console.WriteLine($"result = {myString}");
             MessageBox.Show("OK");
         }
@@ -96,6 +114,7 @@ namespace TranslationLens
             {
                 var imagePath = Path.GetFullPath("screenshot.png");
                 //                var myString = await this.processor.OCRByGoogle(imagePath);
+
                 var myString = await this.processor.OCRByGoogleTest(imagePath);
 
                 Console.WriteLine($"result = {myString}");

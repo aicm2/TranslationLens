@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 
@@ -18,7 +19,7 @@ namespace TranslationLens
         [STAThread]
         static void Main()
         {
-
+            ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
             var processor = new Processor();
 
             try

@@ -9,16 +9,19 @@ using System;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
+using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Security.Authentication;
 using System.Security.Policy;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms; // これを追加
 using Tesseract;
 using static Google.Apis.Requests.BatchRequest;
-using static TranslationLens.LoggingHandler;
 
 namespace TranslationLens
 {
@@ -125,237 +128,122 @@ namespace TranslationLens
         /// </summary>
         /// <param name="imagePath">ローカル画像パス</param>
         /// <returns>OCR結果文字列</returns>
-        internal async Task<string> OCRByGoogle(string imagePath)
+        internal async Task<string> OCRByGoogleTest(string imagePath)
         {
-            // 非同期タスクや未処理例外の捕捉を強化
-            AppDomain.CurrentDomain.UnhandledException += (s, e) =>
-            {
-                Console.WriteLine("UnhandledException: " + e.ExceptionObject);
-            };
+            // TLS 設定はアプリ起動時に1回で十分←設定済
+            // ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
-            TaskScheduler.UnobservedTaskException += (s, e) =>
-            {
-                Console.WriteLine("UnobservedTaskException: " + e.Exception);
-                e.SetObserved(); // 例外を既知として扱う
-            };
+            // 既存ハンドラ + ロギング
+            var handler = new LoggingHandler(new HttpClientHandler());
 
-            try
+            using (var client = new HttpClient(handler))
             {
-                // 既存トークンを使用して DriveService を初期化
-                var credential = await GoogleWebAuthorizationBroker.AuthorizeAsync(
-                    new ClientSecrets { ClientId = this.clientId, ClientSecret = this.clientSecret },
-                    new[] { DriveService.Scope.Drive, DriveService.Scope.DriveFile },
-                    "user",
-                    CancellationToken.None,
-                    new FileDataStore(this.credPath, true)
-                );
+                client.Timeout = TimeSpan.FromMinutes(2); // 念のため長め
 
-                var loggingHandler = new LoggingHandler(new HttpClientHandler());
-                var service = new DriveService(new BaseClientService.Initializer
+                var payload = new
                 {
-                    HttpClientInitializer = credential,
-                    ApplicationName = "OCR Test App",
-                    HttpClientFactory = new CustomHttpClientFactory(loggingHandler)
-                });
-
-                var fileMetadata = new Google.Apis.Drive.v3.Data.File
-                {
-                    Name = "tempOCR_" + Guid.NewGuid(),
-                    MimeType = "application/vnd.google-apps.document"
+                    filename = "tiny.png",
+                    data = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wIAAgMBAY/6zFIAAAAASUVORK5CYII="
                 };
 
-                FileStream stream = null;
-                Google.Apis.Drive.v3.Data.File file = null;
+                string jsonBody = JsonSerializer.Serialize(payload);
+                Console.WriteLine("JSON Body 作成完了:");
+                Console.WriteLine(jsonBody);
 
-                try
+                using (var content = new StringContent(jsonBody, Encoding.UTF8, "application/json"))
                 {
-                    stream = new FileStream(imagePath, FileMode.Open, FileAccess.Read);
+                    Console.WriteLine("StringContent 作成完了");
 
-                    var request = service.Files.Create(fileMetadata, stream, "image/png");
-                    request.Fields = "id";
-                    request.ChunkSize = ResumableUpload.MinimumChunkSize;
-
-                    var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
-                    await request.UploadAsync(cts.Token);
-
-                    file = request.ResponseBody;
-                }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("=== UploadAsync 例外 ===");
-                    Console.WriteLine(ex.GetType());
-                    Console.WriteLine(ex.Message);
-                    Console.WriteLine(ex.StackTrace);
-                    throw;
-                }
-                finally
-                {
-                    stream?.Dispose();
-                }
-
-                try
-                {
-                    var exportRequest = service.Files.Export(file.Id, "text/plain");
-                    using (var ms = new MemoryStream())
+                    try
                     {
-                        await exportRequest.DownloadAsync(ms);
-                        ms.Position = 0;
 
-                        using (var reader = new StreamReader(ms))
-                        {
-                            string ocrText = await reader.ReadToEndAsync();
-                            await service.Files.Delete(file.Id).ExecuteAsync();
-                            return ocrText;
-                        }
+                        Console.WriteLine("送信開始...");
+                        var response = await client.PostAsync(
+                            "https://script.google.com/macros/s/AKfycbzHo2ZjbR4HLiyi5k8HzvwAOWE3iwCQqsGHitY8_QKMGJlILsjq4YDbtaNFYYDyzz8jcg/exec",
+                            content
+                        ).ConfigureAwait(false);
+                        Console.WriteLine("送信完了");
+
+                        response.EnsureSuccessStatusCode();
+
+                        string result = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                        Console.WriteLine("レスポンス取得完了:");
+                        Console.WriteLine(result);
+                        return result;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine("エラー発生:");
+                        Console.WriteLine(ex);
+                        return null;
                     }
                 }
-                catch (Exception ex)
-                {
-                    Console.WriteLine("=== OCR / Export 例外 ===");
-                    Console.WriteLine(ex.GetType());
-                    Console.WriteLine(ex.Message);
-                    Console.WriteLine(ex.StackTrace);
-                    throw;
-                }
             }
-            catch (Exception ex)
+        }
+
+
+
+        /// <summary>
+        /// 既存の HttpClient を DriveService に渡すためのファクトリ
+        /// </summary>
+        public class CustomHttpClientFactory : IHttpClientFactory
+        {
+            private readonly HttpMessageHandler _baseHandler;
+
+            public CustomHttpClientFactory()
             {
-                Console.WriteLine("=== OCRByGoogle 全体例外 ===");
-                Console.WriteLine(ex.GetType());
-                Console.WriteLine(ex.Message);
-                Console.WriteLine(ex.StackTrace);
-                throw;
+                // 内側の HttpClientHandler に TLS 1.2 を指定
+                var httpHandler = new HttpClientHandler
+                {
+                    SslProtocols = SslProtocols.Tls12,
+                    UseProxy = true,
+                    Proxy = WebRequest.DefaultWebProxy,
+                    UseDefaultCredentials = true
+                };
+
+                // LoggingHandler でラップ
+                _baseHandler = new LoggingHandler(httpHandler);
+            }
+
+            public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args)
+            {
+                // ConfigurableHttpClient にハンドラを渡す
+                return new ConfigurableHttpClient(new ConfigurableMessageHandler(_baseHandler));
             }
         }
 
         /// <summary>
-        /// 接続確認用のテストコード
+        /// HTTP リクエスト/レスポンスをログ出力するハンドラ
         /// </summary>
-        /// <returns></returns>
-        internal async Task<string> OCRByGoogleTest(string imagePath)
+        public class LoggingHandler : DelegatingHandler
         {
-            string gasUrl = "https://script.google.com/macros/s/AKfycbzHo2ZjbR4HLiyi5k8HzvwAOWE3iwCQqsGHitY8_QKMGJlILsjq4YDbtaNFYYDyzz8jcg/exec";
+            public LoggingHandler(HttpMessageHandler innerHandler) : base(innerHandler) { }
 
-            // テスト用に小さい画像データを固定
-            var payload = new
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
-                filename = "tiny.png",
-                data = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/wIAAgMBAY/6zFIAAAAASUVORK5CYII="
-            };
+                // リクエスト情報
+                Console.WriteLine($"[Request] {request.Method} {request.RequestUri}");
 
-            try
-            {
-                // HttpClientHandler を明示
-                var handler = new HttpClientHandler
+                if (request.Content != null)
                 {
-                    AllowAutoRedirect = true,
-                    UseCookies = true,
-                    AutomaticDecompression = System.Net.DecompressionMethods.GZip | System.Net.DecompressionMethods.Deflate
-                };
-
-                this.client = new HttpClient(handler);
-                    client.Timeout = TimeSpan.FromSeconds(10);
-                    client.DefaultRequestHeaders.AcceptEncoding.Clear();
-
-                    // JsonSerializer で型を明示してシリアライズ
-                    string json = JsonSerializer.Serialize(payload, typeof(object), new JsonSerializerOptions
-                    {
-                        WriteIndented = false
-                    });
-
-                    var content = new StringContent(json, Encoding.UTF8, "application/json");
-
-                    try
-                    {
-                        using (var response = await client.PostAsync(gasUrl, content))
-                        {
-                            string responseText = await response.Content.ReadAsStringAsync();
-
-                            Console.WriteLine("Status Code: " + response.StatusCode);
-                            Console.WriteLine("Response Body:");
-                            Console.WriteLine(responseText);
-
-                            return responseText;
-                        }
-                    }
-                    catch (TaskCanceledException)
-                    {
-                        Console.WriteLine("タイムアウトしました (10秒)");
-                        return null;
-                    }
-                    catch (Exception ex)
-                    {
-                        Console.WriteLine("例外が発生しました:");
-                        Console.WriteLine(ex);
-                        return ex.Message;
-                    }
-                finally
-                {
-                    this.client.Dispose();
-                    this.client = null;
+                    var length = request.Content.Headers.ContentLength ?? -1;
+                    Console.WriteLine($"[Request Content] {length} バイトのデータ");
                 }
+
+                // リクエスト送信
+                var response = await base.SendAsync(request, cancellationToken);
+
+                // レスポンス情報
+                Console.WriteLine($"[Response] {(int)response.StatusCode} {response.ReasonPhrase}");
+
+                if (response.Content != null)
+                {
+                    var length = response.Content.Headers.ContentLength ?? -1;
+                    Console.WriteLine($"[Response Content] {length} バイトのデータ");
+                }
+
+                return response;
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine("Exception occurred:");
-                Console.WriteLine(ex);
-                return ex.Message;
-            }
-        }
-    }
-
-
-
-    /// <summary>
-    /// 既存の HttpClient を DriveService に渡すためのファクトリ
-    /// </summary>
-    public class CustomHttpClientFactory : IHttpClientFactory
-    {
-        private readonly HttpMessageHandler _handler;
-
-        public CustomHttpClientFactory(HttpMessageHandler handler)
-        {
-            _handler = handler;
-        }
-
-        public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args)
-        {
-            // ConfigurableHttpClient は HttpMessageHandler を渡して作成
-            return new ConfigurableHttpClient(new ConfigurableMessageHandler(_handler));
-        }
-    }
-
-    /// <summary>
-    /// HTTP リクエスト/レスポンスをログ出力するハンドラ
-    /// </summary>
-    public class LoggingHandler : DelegatingHandler
-    {
-        public LoggingHandler(HttpMessageHandler innerHandler) : base(innerHandler) { }
-
-        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-        {
-            // リクエスト情報
-            Console.WriteLine($"[Request] {request.Method} {request.RequestUri}");
-
-            if (request.Content != null)
-            {
-                var length = request.Content.Headers.ContentLength ?? -1;
-                Console.WriteLine($"[Request Content] {length} バイトのデータ");
-            }
-
-            // リクエスト送信
-            var response = await base.SendAsync(request, cancellationToken);
-
-            // レスポンス情報
-            Console.WriteLine($"[Response] {(int)response.StatusCode} {response.ReasonPhrase}");
-
-            if (response.Content != null)
-            {
-                var length = response.Content.Headers.ContentLength ?? -1;
-                Console.WriteLine($"[Response Content] {length} バイトのデータ");
-            }
-
-            return response;
         }
     }
 }
