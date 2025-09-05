@@ -17,6 +17,8 @@ namespace TranslationLens
         // Formの端をドラッグしてサイズ変更するためのクラス(効かない)
         private FormDragResizer formResizer;
 
+        private readonly string tempPngPath = "screenshot.png";
+
         private Processor processor = null;
 
         internal MainForm(Processor processor)
@@ -75,22 +77,7 @@ namespace TranslationLens
             Bitmap bmp = processor.snap(rect);
 
             // 例：ファイルに保存する場合
-            bmp.Save("screenshot.png", System.Drawing.Imaging.ImageFormat.Png);
-        }
-
-        /// <summary>
-        /// 翻訳（テスト）
-        /// </summary>
-        /// <param name="sender">sender</param>
-        /// <param name="e">p</param>
-        private void MenuTransLate_Click(object sender, EventArgs e)
-        {
-            this.Cursor = Cursors.WaitCursor;
-
-             var myString = CallOcr().GetAwaiter().GetResult();
-
-            Console.WriteLine($"result = {myString}");
-            MessageBox.Show("OK");
+            bmp.Save(this.tempPngPath, System.Drawing.Imaging.ImageFormat.Png);
         }
 
         /// <summary>
@@ -106,7 +93,16 @@ namespace TranslationLens
 
             this.Invoke((Action)(() =>
             {
+                var texts = TextSplitter.SplitSentences(myString);
+
                 Console.WriteLine($"result = {myString}");
+                Console.WriteLine($"----------------------------------------------------------");
+
+                foreach (var text in texts)
+                {
+                    Console.WriteLine($"sentence: {text}");
+                }
+
                 MessageBox.Show("OK");
             }));
         }
@@ -115,7 +111,7 @@ namespace TranslationLens
         {
             try
             {
-                var imagePath = Path.GetFullPath("screenshot.png");
+                var imagePath = Path.GetFullPath(this.tempPngPath);
                 var myString = await this.processor.OCRByGoogle(imagePath);
 
                // var myString = await this.processor.OCRByGoogleTest(imagePath);
