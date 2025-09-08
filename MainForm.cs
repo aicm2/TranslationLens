@@ -50,7 +50,7 @@ namespace TranslationLens
             panel.Bounds = new Rectangle(
                 margin,
                 margin,
-                this.ClientSize.Width - margin * 2,
+                this.ClientSize.Width- TextsTextBox.Width - margin * 2,
                 this.ClientSize.Height - margin * 2
             );
         }
@@ -103,6 +103,8 @@ namespace TranslationLens
                     Console.WriteLine($"sentence: {text}");
                 }
 
+                TextsTextBox.Text = string.Join("------------------\n", texts);
+
                 MessageBox.Show("OK");
             }));
         }
@@ -127,5 +129,9 @@ namespace TranslationLens
             return null;
         }
 
+        private void richTextBox1_TextChanged(object sender, EventArgs e)
+        {
+
+        }
     }
 }

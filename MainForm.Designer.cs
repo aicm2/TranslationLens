@@ -34,6 +34,8 @@ namespace TranslationLens
             this.ScreenShotMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.MenuTransrate = new System.Windows.Forms.ToolStripMenuItem();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
+            this.TextsTextBox = new System.Windows.Forms.RichTextBox();
+            this.statusStrip1 = new System.Windows.Forms.StatusStrip();
             this.MenuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -75,11 +77,32 @@ namespace TranslationLens
             this.contextMenuStrip1.Name = "contextMenuStrip1";
             this.contextMenuStrip1.Size = new System.Drawing.Size(61, 4);
             // 
+            // TextsTextBox
+            // 
+            this.TextsTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
+            | System.Windows.Forms.AnchorStyles.Right)));
+            this.TextsTextBox.Location = new System.Drawing.Point(544, 30);
+            this.TextsTextBox.Name = "TextsTextBox";
+            this.TextsTextBox.Size = new System.Drawing.Size(256, 425);
+            this.TextsTextBox.TabIndex = 1;
+            this.TextsTextBox.Text = "";
+            this.TextsTextBox.TextChanged += new System.EventHandler(this.richTextBox1_TextChanged);
+            // 
+            // statusStrip1
+            // 
+            this.statusStrip1.Location = new System.Drawing.Point(0, 428);
+            this.statusStrip1.Name = "statusStrip1";
+            this.statusStrip1.Size = new System.Drawing.Size(800, 22);
+            this.statusStrip1.TabIndex = 2;
+            this.statusStrip1.Text = "statusStrip1";
+            // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
+            this.Controls.Add(this.statusStrip1);
+            this.Controls.Add(this.TextsTextBox);
             this.Controls.Add(this.MenuStrip1);
             this.MainMenuStrip = this.MenuStrip1;
             this.Name = "MainForm";
@@ -99,5 +122,7 @@ namespace TranslationLens
         private System.Windows.Forms.ContextMenuStrip contextMenuStrip1;
         private System.Windows.Forms.ToolStripMenuItem ScreenShotMenu;
         private System.Windows.Forms.ToolStripMenuItem MenuTransrate;
+        private System.Windows.Forms.RichTextBox TextsTextBox;
+        private System.Windows.Forms.StatusStrip statusStrip1;
     }
 }
