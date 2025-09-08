@@ -5,6 +5,7 @@ using System.Data;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -14,6 +15,14 @@ namespace TranslationLens
 {
     public partial class MainForm : Form
     {
+        // フォームの外のクリックをっ検出する為のAPI
+        [DllImport("user32.dll")]
+        public static extern short GetAsyncKeyState(System.Windows.Forms.Keys vKey);
+        private bool flgClick = false;
+
+        private Timer clickTimer = new Timer();
+
+
         private Panel panel;
         // Formの端をドラッグしてサイズ変更するためのクラス(効かない)
         private FormDragResizer formResizer;
@@ -43,6 +52,33 @@ namespace TranslationLens
 
             AdjustPanelBounds();
             this.Resize += (s, ev) => AdjustPanelBounds();
+
+            this.clickTimer= new Timer();
+            this.clickTimer.Tick += Timer1_Tick;
+            this.clickTimer.Interval = 300; // 500ミリ秒ごとにチェック
+
+        }
+
+        /// <summary>
+        /// 画面外クリック検出用のタイマー
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">e</param>
+        private void Timer1_Tick(object sender, EventArgs e)
+        {
+            if (GetAsyncKeyState(Keys.LButton) != 0)
+            {
+                if (flgClick == false)
+                {
+                    // 画面外がクリックされた
+                    StatusStrip1.Text = "画面外クリック検出";
+                    flgClick = true;
+                }
+            }
+            else
+            {
+                flgClick = false;
+            }
         }
 
         private void AdjustPanelBounds()
@@ -68,6 +104,8 @@ namespace TranslationLens
 
         private Bitmap TakeScreenshot()
         {
+            this.Cursor = Cursors.WaitCursor;
+
             // Panelのスクリーン上の座標を取得
             Point panelScreenPos = panel.PointToScreen(Point.Empty);
 
@@ -85,7 +123,6 @@ namespace TranslationLens
             // 例：ファイルに保存する場合
             bmp.Save(this.tempPngPath, System.Drawing.Imaging.ImageFormat.Png);
             return bmp;
-
         }
 
         /// <summary>
@@ -143,7 +180,50 @@ namespace TranslationLens
 
         private void TextsTextBox_DoubleClick(object sender, EventArgs e)
         {
+            // スクリーンショットを撮る
             var bmp = TakeScreenshot();
+
+        }
+
+        private async void TextsTextBox_DoubleClick_Async(object sender, EventArgs e)
+        {
+
+            this.TextsTextBox.Text = string.Empty;
+            StatusStrip1.Text = string.Empty;
+            try
+            {
+                this.UseWaitCursor = true;
+
+                StatusStrip1.Text = "スクリーンショットを撮っています...";
+
+                // スクリーンショットを撮る
+                var bmp = TakeScreenshot();
+
+                StatusStrip1.Text = "OCRを実行しています...";
+                // OCRを呼び出す
+                this.Cursor = Cursors.WaitCursor;
+                var myString = await CallOcr();
+
+                StatusStrip1.Text = "翻訳を実行しています...";
+
+                // 文単位に分割する
+                var texts = TextSplitter.SplitSentences(myString);
+
+                // 画面に表示する
+                var japaneseList = await this.processor.TranslateListAsync(texts);
+                var result = new List<TranslationResult>();
+                for (int i = 0; i < texts.Count; i++)
+                {
+                    result.Add(new TranslationResult(texts[i], japaneseList[i]));
+                }
+                SetResltToTextBox(result);
+
+                StatusStrip1.Text = "完了しました。";
+            }
+            finally
+            {
+                this.UseWaitCursor = false;
+            }
 
         }
 
@@ -155,6 +235,7 @@ namespace TranslationLens
         private async void TextsTextBox_DoubleClick__Async(object sender, EventArgs e)
         {
             var bmp = TakeScreenshot();
+
 
         }
 
@@ -191,6 +272,11 @@ namespace TranslationLens
         private void SetResltToTextBox(List<TranslationResult> result)
         {
             this.TextsTextBox.Text = string.Join("\n\n", result);
+
+        }
+
+        private void TextsTextBox_TextChanged(object sender, EventArgs e)
+        {
 
         }
     }

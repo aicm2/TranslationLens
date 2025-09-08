@@ -36,7 +36,7 @@ namespace TranslationLens
             this.MemuTranslationText = new System.Windows.Forms.ToolStripMenuItem();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.TextsTextBox = new System.Windows.Forms.RichTextBox();
-            this.statusStrip1 = new System.Windows.Forms.StatusStrip();
+            this.StatusStrip1 = new System.Windows.Forms.StatusStrip();
             this.MenuStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
@@ -96,23 +96,24 @@ namespace TranslationLens
             this.TextsTextBox.Size = new System.Drawing.Size(256, 425);
             this.TextsTextBox.TabIndex = 1;
             this.TextsTextBox.Text = "";
-            this.TextsTextBox.DoubleClick += new System.EventHandler(this.TextsTextBox_DoubleClick);
+            this.TextsTextBox.TextChanged += new System.EventHandler(this.TextsTextBox_TextChanged);
+            this.TextsTextBox.DoubleClick += new System.EventHandler(this.TextsTextBox_DoubleClick_Async);
             // 
-            // statusStrip1
+            // StatusStrip1
             // 
-            this.statusStrip1.Location = new System.Drawing.Point(0, 428);
-            this.statusStrip1.Name = "statusStrip1";
-            this.statusStrip1.Size = new System.Drawing.Size(800, 22);
-            this.statusStrip1.TabIndex = 2;
-            this.statusStrip1.Text = "statusStrip1";
-            this.statusStrip1.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.statusStrip1_ItemClicked);
+            this.StatusStrip1.Location = new System.Drawing.Point(0, 428);
+            this.StatusStrip1.Name = "StatusStrip1";
+            this.StatusStrip1.Size = new System.Drawing.Size(800, 22);
+            this.StatusStrip1.TabIndex = 2;
+            this.StatusStrip1.Text = "statusStrip1";
+            this.StatusStrip1.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.statusStrip1_ItemClicked);
             // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
-            this.Controls.Add(this.statusStrip1);
+            this.Controls.Add(this.StatusStrip1);
             this.Controls.Add(this.TextsTextBox);
             this.Controls.Add(this.MenuStrip1);
             this.MainMenuStrip = this.MenuStrip1;
@@ -134,7 +135,7 @@ namespace TranslationLens
         private System.Windows.Forms.ToolStripMenuItem ScreenShotMenu;
         private System.Windows.Forms.ToolStripMenuItem MenuTransrate;
         private System.Windows.Forms.RichTextBox TextsTextBox;
-        private System.Windows.Forms.StatusStrip statusStrip1;
+        private System.Windows.Forms.StatusStrip StatusStrip1;
         private System.Windows.Forms.ToolStripMenuItem MemuTranslationText;
     }
 }
