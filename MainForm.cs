@@ -7,9 +7,11 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using TranslationLens.Models;
+using WinFormsTimer = System.Windows.Forms.Timer;
 
 namespace TranslationLens
 {
@@ -20,8 +22,10 @@ namespace TranslationLens
         public static extern short GetAsyncKeyState(System.Windows.Forms.Keys vKey);
         private bool flgClick = false;
 
-        private Timer clickTimer = new Timer();
+        private WinFormsTimer clickTimer = new WinFormsTimer();
 
+        // OCRや翻訳のキャンセル用
+        private CancellationTokenSource cts;
 
         private Panel panel;
         // Formの端をドラッグしてサイズ変更するためのクラス(効かない)
@@ -154,25 +158,35 @@ namespace TranslationLens
             }));
         }
 
-        private async Task<string> CallOcr()
+        private async Task<string> CallOcr(CancellationToken token)
         {
             try
             {
+                token.ThrowIfCancellationRequested(); // OCR前にキャンセルチェック
+
                 var imagePath = Path.GetFullPath(this.tempPngPath);
+
+                // OCR呼び出し
                 var myString = await this.processor.OCRByGoogle(imagePath);
 
-               // var myString = await this.processor.OCRByGoogleTest(imagePath);
+                token.ThrowIfCancellationRequested(); // OCR後にキャンセルチェック
 
                 Console.WriteLine($"result = {myString}");
                 return myString;
-
+            }
+            catch (OperationCanceledException)
+            {
+                // キャンセル時の処理
+                StatusStrip1.Text = "OCRがキャンセルされました";
+                return null;
             }
             catch (Exception ex)
             {
                 MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+                return null;
             }
-            return null;
         }
+
 
         private void statusStrip1_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
         {
@@ -187,6 +201,7 @@ namespace TranslationLens
 
         private async void TextsTextBox_DoubleClick_Async(object sender, EventArgs e)
         {
+            cts = new CancellationTokenSource();
 
             this.TextsTextBox.Text = string.Empty;
             StatusStrip1.Text = string.Empty;
@@ -195,36 +210,36 @@ namespace TranslationLens
                 this.UseWaitCursor = true;
 
                 StatusStrip1.Text = "スクリーンショットを撮っています...";
-
-                // スクリーンショットを撮る
                 var bmp = TakeScreenshot();
 
                 StatusStrip1.Text = "OCRを実行しています...";
-                // OCRを呼び出す
-                this.Cursor = Cursors.WaitCursor;
-                var myString = await CallOcr();
+                var myString = await CallOcr(cts.Token);   // ← トークンを渡す
 
                 StatusStrip1.Text = "翻訳を実行しています...";
-
-                // 文単位に分割する
                 var texts = TextSplitter.SplitSentences(myString);
 
-                // 画面に表示する
-                var japaneseList = await this.processor.TranslateListAsync(texts);
+                var japaneseList = await this.processor.TranslateListAsync(texts, cts.Token);
+
                 var result = new List<TranslationResult>();
                 for (int i = 0; i < texts.Count; i++)
                 {
+                    // キャンセルされていたら例外が出る
+                    cts.Token.ThrowIfCancellationRequested();
                     result.Add(new TranslationResult(texts[i], japaneseList[i]));
                 }
-                SetResltToTextBox(result);
 
+                SetResltToTextBox(result);
                 StatusStrip1.Text = "完了しました。";
+            }
+            catch (OperationCanceledException)
+            {
+                StatusStrip1.Text = "キャンセルされました。";
             }
             finally
             {
                 this.UseWaitCursor = false;
+                cts = null;
             }
-
         }
 
         /// <summary>
@@ -256,7 +271,7 @@ namespace TranslationLens
             // 閉じる
             sr.Close();
 
-            var japaneseList = await this.processor.TranslateListAsync(texts);
+            var japaneseList = await this.processor.TranslateListAsync(texts,cts.Token);
             var result = new List<TranslationResult>();
             for (int i = 0; i < texts.Count; i++)
             {
