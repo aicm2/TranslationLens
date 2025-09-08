@@ -6,6 +6,7 @@ using Google.Apis.Upload;
 using Google.Apis.Util.Store;
 using NLog.Targets;
 using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -35,10 +36,14 @@ namespace TranslationLens
 
         private readonly string gASURL = "https://script.google.com/macros/s/AKfycbwIbppF5BsIZ7BkewR3pXFN_eK0ExnUpy90GNV2JGpgc-hYs0itzDkcDVWdsa_CwEVEFA/exec";
 
+        /// <summary>
+        /// 翻訳用のgas
+        /// </summary>
+        private readonly string gasURL_T = "https://script.google.com/macros/s/AKfycbzoyWSXgC_Exu1p8yRtjlbeCnczFX-TI_jYtbjIcMHnCOLTUixKnV6Zw-HfzGAIz52xTw/exec";
+
         private readonly string clientId = "629337539653-pdu7usoru0lb4e7fg83du66i54ph7e4v.apps.googleusercontent.com";
         private readonly string clientSecret = "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";
 
-        private HttpClient client = null;
 
         String filename(String val)
         {
@@ -198,6 +203,28 @@ namespace TranslationLens
                     return ocrText;
                 }
             }
+        }
+
+        internal async Task<string> TranslateAsync(string text, string source = "en", string target = "ja")
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return null;
+
+            var httpClient = new HttpClient();
+
+            var url = $"{this.gasURL_T}?text={Uri.EscapeDataString(text)}&source={source}&target={target}";
+            return await httpClient.GetStringAsync(url);
+        }
+
+        internal async Task<List<string>> TranslateListAsync(List<string> texts, string source = "en", string target = "ja")
+        {
+            var results = new List<string>();
+            foreach (var text in texts)
+            {
+                var translated = await TranslateAsync(text, source, target);
+                results.Add(translated);
+            }
+            return results;
         }
 
         /// <summary>

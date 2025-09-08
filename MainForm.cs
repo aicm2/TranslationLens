@@ -8,6 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using TranslationLens.Models;
 
 namespace TranslationLens
 {
@@ -27,7 +28,7 @@ namespace TranslationLens
             InitializeComponent();
 
             // Formのイニシャル処理で生成する
-            formResizer = new FormDragResizer(this, FormDragResizer.ResizeDirection.All, 8);
+        //    formResizer = new FormDragResizer(this, FormDragResizer.ResizeDirection.All, 8);
 
         }
 
@@ -62,6 +63,11 @@ namespace TranslationLens
         /// <param name="e">e</param>
         private void ScreenShotMenu_Click(object sender, EventArgs e)
         {
+            var bmp = TakeScreenshot();
+        }
+
+        private Bitmap TakeScreenshot()
+        {
             // Panelのスクリーン上の座標を取得
             Point panelScreenPos = panel.PointToScreen(Point.Empty);
 
@@ -78,6 +84,8 @@ namespace TranslationLens
 
             // 例：ファイルに保存する場合
             bmp.Save(this.tempPngPath, System.Drawing.Imaging.ImageFormat.Png);
+            return bmp;
+
         }
 
         /// <summary>
@@ -129,8 +137,60 @@ namespace TranslationLens
             return null;
         }
 
-        private void richTextBox1_TextChanged(object sender, EventArgs e)
+        private void statusStrip1_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
         {
+        }
+
+        private void TextsTextBox_DoubleClick(object sender, EventArgs e)
+        {
+            var bmp = TakeScreenshot();
+
+        }
+
+        /// <summary>
+        /// スクリーンショットのテスト
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">e</param>
+        private async void TextsTextBox_DoubleClick__Async(object sender, EventArgs e)
+        {
+            var bmp = TakeScreenshot();
+
+        }
+
+        /// <summary>
+        /// テキストファイルの翻訳呼び出し（テスト）（非同期版）
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">e</param>
+        private async void MemuTranslationText_Click_Async(object sender, EventArgs e)
+        {
+            var path = "baseText.txt";
+            var texts = new List<string>();
+            System.IO.StreamReader sr = new System.IO.StreamReader(path);
+            while (sr.Peek() > -1)
+            {
+                texts.Add(sr.ReadLine());
+            }
+            // 閉じる
+            sr.Close();
+
+            var japaneseList = await this.processor.TranslateListAsync(texts);
+            var result = new List<TranslationResult>();
+            for (int i = 0; i < texts.Count; i++)
+            {
+                result.Add(new TranslationResult(texts[i], japaneseList[i]));
+            }
+            SetResltToTextBox(result);
+        }
+
+        /// <summary>
+        /// 結果をRichTextBoxにセットする
+        /// </summary>
+        /// <param name="result">結果</param>
+        private void SetResltToTextBox(List<TranslationResult> result)
+        {
+            this.TextsTextBox.Text = string.Join("\n\n", result);
 
         }
     }

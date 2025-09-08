@@ -33,6 +33,7 @@ namespace TranslationLens
             this.MainMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.ScreenShotMenu = new System.Windows.Forms.ToolStripMenuItem();
             this.MenuTransrate = new System.Windows.Forms.ToolStripMenuItem();
+            this.MemuTranslationText = new System.Windows.Forms.ToolStripMenuItem();
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.TextsTextBox = new System.Windows.Forms.RichTextBox();
             this.statusStrip1 = new System.Windows.Forms.StatusStrip();
@@ -53,7 +54,8 @@ namespace TranslationLens
             // 
             this.MainMenu.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.ScreenShotMenu,
-            this.MenuTransrate});
+            this.MenuTransrate,
+            this.MemuTranslationText});
             this.MainMenu.Name = "MainMenu";
             this.MainMenu.Size = new System.Drawing.Size(59, 23);
             this.MainMenu.Text = "メニュー";
@@ -61,16 +63,23 @@ namespace TranslationLens
             // ScreenShotMenu
             // 
             this.ScreenShotMenu.Name = "ScreenShotMenu";
-            this.ScreenShotMenu.Size = new System.Drawing.Size(180, 24);
+            this.ScreenShotMenu.Size = new System.Drawing.Size(223, 24);
             this.ScreenShotMenu.Text = "撮影（テスト用）";
             this.ScreenShotMenu.Click += new System.EventHandler(this.ScreenShotMenu_Click);
             // 
             // MenuTransrate
             // 
             this.MenuTransrate.Name = "MenuTransrate";
-            this.MenuTransrate.Size = new System.Drawing.Size(180, 24);
+            this.MenuTransrate.Size = new System.Drawing.Size(223, 24);
             this.MenuTransrate.Text = "翻訳（テスト用）";
             this.MenuTransrate.Click += new System.EventHandler(this.MenuTransLate_Click_Async);
+            // 
+            // MemuTranslationText
+            // 
+            this.MemuTranslationText.Name = "MemuTranslationText";
+            this.MemuTranslationText.Size = new System.Drawing.Size(223, 24);
+            this.MemuTranslationText.Text = "テキスト翻訳（テスト用）";
+            this.MemuTranslationText.Click += new System.EventHandler(this.MemuTranslationText_Click_Async);
             // 
             // contextMenuStrip1
             // 
@@ -81,12 +90,13 @@ namespace TranslationLens
             // 
             this.TextsTextBox.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Bottom) 
             | System.Windows.Forms.AnchorStyles.Right)));
+            this.TextsTextBox.Font = new System.Drawing.Font("MS UI Gothic", 12F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point, ((byte)(128)));
             this.TextsTextBox.Location = new System.Drawing.Point(544, 30);
             this.TextsTextBox.Name = "TextsTextBox";
             this.TextsTextBox.Size = new System.Drawing.Size(256, 425);
             this.TextsTextBox.TabIndex = 1;
             this.TextsTextBox.Text = "";
-            this.TextsTextBox.TextChanged += new System.EventHandler(this.richTextBox1_TextChanged);
+            this.TextsTextBox.DoubleClick += new System.EventHandler(this.TextsTextBox_DoubleClick);
             // 
             // statusStrip1
             // 
@@ -95,6 +105,7 @@ namespace TranslationLens
             this.statusStrip1.Size = new System.Drawing.Size(800, 22);
             this.statusStrip1.TabIndex = 2;
             this.statusStrip1.Text = "statusStrip1";
+            this.statusStrip1.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.statusStrip1_ItemClicked);
             // 
             // MainForm
             // 
@@ -124,5 +135,6 @@ namespace TranslationLens
         private System.Windows.Forms.ToolStripMenuItem MenuTransrate;
         private System.Windows.Forms.RichTextBox TextsTextBox;
         private System.Windows.Forms.StatusStrip statusStrip1;
+        private System.Windows.Forms.ToolStripMenuItem MemuTranslationText;
     }
 }

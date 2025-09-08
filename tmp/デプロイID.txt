@@ -7,3 +7,7 @@ https://script.google.com/macros/s/AKfycbwIbppF5BsIZ7BkewR3pXFN_eK0ExnUpy90GNV2J
 
 Auth ID
 629337539653-pdu7usoru0lb4e7fg83du66i54ph7e4v.apps.googleusercontent.com
+
+
+翻訳Web
+https://script.google.com/macros/s/AKfycbzoyWSXgC_Exu1p8yRtjlbeCnczFX-TI_jYtbjIcMHnCOLTUixKnV6Zw-HfzGAIz52xTw/exec
