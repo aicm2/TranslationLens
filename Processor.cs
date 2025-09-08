@@ -216,15 +216,31 @@ namespace TranslationLens
             return await httpClient.GetStringAsync(url);
         }
 
-        internal async Task<List<string>> TranslateListAsync(List<string> texts, string source = "en", string target = "ja")
+        internal async Task<List<string>> TranslateListAsync(List<string> texts, CancellationToken token, string source = "en", string target = "ja")
         {
+            try
+            {
             var results = new List<string>();
             foreach (var text in texts)
-            {
-                var translated = await TranslateAsync(text, source, target);
+                {
+                    token.ThrowIfCancellationRequested(); // キャンセルチェック
+
+                    var translated = await TranslateAsync(text, source, target);
                 results.Add(translated);
             }
             return results;
+
+            }
+            catch (OperationCanceledException)
+            {
+                // キャンセル時の処理
+                return null;
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message + "\n" + ex.StackTrace);
+                return null;
+            }
         }
 
         /// <summary>

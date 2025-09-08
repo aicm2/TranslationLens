@@ -57,7 +57,7 @@ namespace TranslationLens
             AdjustPanelBounds();
             this.Resize += (s, ev) => AdjustPanelBounds();
 
-            this.clickTimer= new Timer();
+            this.clickTimer= new WinFormsTimer();
             this.clickTimer.Tick += Timer1_Tick;
             this.clickTimer.Interval = 300; // 500ミリ秒ごとにチェック
 
@@ -87,13 +87,15 @@ namespace TranslationLens
 
         private void AdjustPanelBounds()
         {
-            int margin = 8; // 枠を残す幅
+            int margin = 8;
+            int topOffset = margin + MainMenu.Height; // MenuStripを避ける
             panel.Bounds = new Rectangle(
                 margin,
-                margin,
-                this.ClientSize.Width- TextsTextBox.Width - margin * 2,
-                this.ClientSize.Height - margin * 2
+                topOffset,
+                this.ClientSize.Width - TextsTextBox.Width - margin * 2,
+                this.ClientSize.Height - topOffset - margin
             );
+
         }
 
         /// <summary>
@@ -138,7 +140,7 @@ namespace TranslationLens
         {
             this.Cursor = Cursors.WaitCursor;
 
-            var myString = await CallOcr(); // これだけで OK
+            var myString = await CallOcr(cts.Token); // これだけで OK
 
             this.Invoke((Action)(() =>
             {
@@ -205,41 +207,58 @@ namespace TranslationLens
 
             this.TextsTextBox.Text = string.Empty;
             StatusStrip1.Text = string.Empty;
+
             try
             {
                 this.UseWaitCursor = true;
 
-                StatusStrip1.Text = "スクリーンショットを撮っています...";
+                // スクリーンショット
+                SetStatus("スクリーンショットを撮っています...");
+                await Task.Yield(); // ← ここで UI を即更新
                 var bmp = TakeScreenshot();
 
-                StatusStrip1.Text = "OCRを実行しています...";
-                var myString = await CallOcr(cts.Token);   // ← トークンを渡す
+                // OCR
+                SetStatus("OCRを実行しています...");
+                await Task.Yield();
+                var myString = await CallOcr(cts.Token);
 
-                StatusStrip1.Text = "翻訳を実行しています...";
+                // 翻訳
+                SetStatus("翻訳を実行しています...");
+                await Task.Yield();
                 var texts = TextSplitter.SplitSentences(myString);
 
                 var japaneseList = await this.processor.TranslateListAsync(texts, cts.Token);
 
+                // 結果表示
                 var result = new List<TranslationResult>();
                 for (int i = 0; i < texts.Count; i++)
                 {
-                    // キャンセルされていたら例外が出る
                     cts.Token.ThrowIfCancellationRequested();
                     result.Add(new TranslationResult(texts[i], japaneseList[i]));
                 }
-
                 SetResltToTextBox(result);
-                StatusStrip1.Text = "完了しました。";
+
+                SetStatus("完了しました。");
             }
             catch (OperationCanceledException)
             {
-                StatusStrip1.Text = "キャンセルされました。";
+                SetStatus("キャンセルされました。");
             }
             finally
             {
                 this.UseWaitCursor = false;
                 cts = null;
             }
+        }
+
+        /// <summary>
+        /// ステータスバーにメッセージを表示する
+        /// </summary>
+        /// <param name="text">メッセージ</param>
+        private void SetStatus(string text)
+        {
+            Console.WriteLine(text);
+            StatusStrip1.Text = text;
         }
 
         /// <summary>
@@ -288,6 +307,51 @@ namespace TranslationLens
         {
             this.TextsTextBox.Text = string.Join("\n\n", result);
 
+            // 行ごとに分解する
+            var sp = this.TextsTextBox.Text.Split('\n');
+            for (var index = 0; index < sp.Length; ++index)
+            {
+                int start = this.TextsTextBox.GetFirstCharIndexFromLine(index);
+                int length = this.TextsTextBox.Lines[index].Length;
+
+                // 元文行、訳文行。空欄なので、3で割った余りで判定する
+                var flg = (index + 1) % 3;
+
+                var foreColor = Color.Black;
+                // 選択
+                this.TextsTextBox.Select(start, length);
+                if (flg == 1)
+                {
+                    Console.WriteLine($"元文行: {this.TextsTextBox.SelectedText}");
+                    foreColor = Color.Blue; // 元文行
+                }
+                else if (flg == 2)
+                {
+                    Console.WriteLine($"訳文行: {this.TextsTextBox.SelectedText}");
+                    // 現在のフォントを取得し、太字スタイルを適用します
+                    var font = TextsTextBox.SelectionFont;
+                    FontStyle newStyle = font.Style | FontStyle.Bold; // 既存のスタイルに太字を追加
+
+                    // 新しいフォントオブジェクトを作成して設定します
+                    TextsTextBox.SelectionFont = new Font(font.FontFamily, font.Size, newStyle);
+
+
+                    foreColor = Color.Black; // 訳文行
+                }
+                else
+                {
+                    Console.WriteLine($"空行: {this.TextsTextBox.SelectedText}");
+                    foreColor = Color.Gray; // 空行
+                }
+
+                // 色を変更
+                this.TextsTextBox.SelectionColor = foreColor;
+
+
+                // 選択解除
+                this.TextsTextBox.Select(0, 0);
+                this.TextsTextBox.SelectionColor = this.TextsTextBox.ForeColor; // 元に戻す
+            }
         }
 
         private void TextsTextBox_TextChanged(object sender, EventArgs e)
