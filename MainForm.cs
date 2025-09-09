@@ -24,6 +24,9 @@ namespace TranslationLens
 
         private WinFormsTimer clickTimer = new WinFormsTimer();
 
+        // ロガーのインスタンスを作成
+        private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
         // OCRや翻訳のキャンセル用
         private CancellationTokenSource cts;
 
@@ -214,17 +217,20 @@ namespace TranslationLens
 
                 // スクリーンショット
                 SetStatus("スクリーンショットを撮っています...");
+                await Task.Delay(50);
                 await Task.Yield(); // ← ここで UI を即更新
                 var bmp = TakeScreenshot();
 
                 // OCR
                 SetStatus("OCRを実行しています...");
                 await Task.Yield();
+                await Task.Delay(50);
                 var myString = await CallOcr(cts.Token);
 
                 // 翻訳
                 SetStatus("翻訳を実行しています...");
                 await Task.Yield();
+                await Task.Delay(50);
                 var texts = TextSplitter.SplitSentences(myString);
 
                 var japaneseList = await this.processor.TranslateListAsync(texts, cts.Token);
@@ -257,6 +263,7 @@ namespace TranslationLens
         /// <param name="text">メッセージ</param>
         private void SetStatus(string text)
         {
+            Logger.Debug(text);
             Console.WriteLine(text);
             StatusStrip1.Text = text;
         }
@@ -309,25 +316,31 @@ namespace TranslationLens
 
             // 行ごとに分解する
             var sp = this.TextsTextBox.Text.Split('\n');
+
+            var rtb = this.TextsTextBox;
+            var lines = rtb.Lines;
+            var starts = GetLogicalLineStarts(rtb);
+
             for (var index = 0; index < sp.Length; ++index)
             {
-                int start = this.TextsTextBox.GetFirstCharIndexFromLine(index);
-                int length = this.TextsTextBox.Lines[index].Length;
-
                 // 元文行、訳文行。空欄なので、3で割った余りで判定する
                 var flg = (index + 1) % 3;
-
+                int start = starts[index];         // ←論理行の正しい開始
+                int length = lines[index].Length;   // ←論理行の長さ
+                // var text = this.TextsTextBox.Lines[index];
+                // Console.WriteLine($"flg = {flg}、index={index}, start={start}, length={length}, text={text}");
+                
                 var foreColor = Color.Black;
                 // 選択
                 this.TextsTextBox.Select(start, length);
                 if (flg == 1)
                 {
-                    Console.WriteLine($"元文行: {this.TextsTextBox.SelectedText}");
+  //                 Console.WriteLine($"元文行: {this.TextsTextBox.SelectedText}");
                     foreColor = Color.Blue; // 元文行
                 }
                 else if (flg == 2)
                 {
-                    Console.WriteLine($"訳文行: {this.TextsTextBox.SelectedText}");
+ //                   Console.WriteLine($"訳文行: {this.TextsTextBox.SelectedText}");
                     // 現在のフォントを取得し、太字スタイルを適用します
                     var font = TextsTextBox.SelectionFont;
                     FontStyle newStyle = font.Style | FontStyle.Bold; // 既存のスタイルに太字を追加
@@ -335,12 +348,11 @@ namespace TranslationLens
                     // 新しいフォントオブジェクトを作成して設定します
                     TextsTextBox.SelectionFont = new Font(font.FontFamily, font.Size, newStyle);
 
-
                     foreColor = Color.Black; // 訳文行
                 }
                 else
                 {
-                    Console.WriteLine($"空行: {this.TextsTextBox.SelectedText}");
+    //                Console.WriteLine($"空行: {this.TextsTextBox.SelectedText}");
                     foreColor = Color.Gray; // 空行
                 }
 
@@ -352,6 +364,29 @@ namespace TranslationLens
                 this.TextsTextBox.Select(0, 0);
                 this.TextsTextBox.SelectionColor = this.TextsTextBox.ForeColor; // 元に戻す
             }
+        }
+
+        // 論理行（Lines[i]）の開始位置を全部求める
+        private static int[] GetLogicalLineStarts(RichTextBox rtb)
+        {
+            var text = rtb.Text;
+            var lines = rtb.Lines;
+            var starts = new int[lines.Length];
+
+            int pos = 0; // text 内の走査位置
+            for (int i = 0; i < lines.Length; i++)
+            {
+                starts[i] = pos;                 // この論理行の開始
+                pos += lines[i].Length;          // 行本体ぶん進める
+
+                // 行末の改行（\n または \r\n）をスキップ
+                if (pos < text.Length)
+                {
+                    if (text[pos] == '\r') { pos++; if (pos < text.Length && text[pos] == '\n') pos++; }
+                    else if (text[pos] == '\n') { pos++; }
+                }
+            }
+            return starts;
         }
 
         private void TextsTextBox_TextChanged(object sender, EventArgs e)

@@ -37,7 +37,9 @@ namespace TranslationLens
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.TextsTextBox = new System.Windows.Forms.RichTextBox();
             this.StatusStrip1 = new System.Windows.Forms.StatusStrip();
+            this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
             this.MenuStrip1.SuspendLayout();
+            this.StatusStrip1.SuspendLayout();
             this.SuspendLayout();
             // 
             // MenuStrip1
@@ -101,12 +103,20 @@ namespace TranslationLens
             // 
             // StatusStrip1
             // 
-            this.StatusStrip1.Location = new System.Drawing.Point(0, 428);
+            this.StatusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.toolStripStatusLabel1});
+            this.StatusStrip1.Location = new System.Drawing.Point(0, 426);
             this.StatusStrip1.Name = "StatusStrip1";
-            this.StatusStrip1.Size = new System.Drawing.Size(800, 22);
+            this.StatusStrip1.Size = new System.Drawing.Size(800, 24);
             this.StatusStrip1.TabIndex = 2;
             this.StatusStrip1.Text = "statusStrip1";
             this.StatusStrip1.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.statusStrip1_ItemClicked);
+            // 
+            // toolStripStatusLabel1
+            // 
+            this.toolStripStatusLabel1.Name = "toolStripStatusLabel1";
+            this.toolStripStatusLabel1.Size = new System.Drawing.Size(139, 19);
+            this.toolStripStatusLabel1.Text = "toolStripStatusLabel1";
             // 
             // MainForm
             // 
@@ -122,6 +132,8 @@ namespace TranslationLens
             this.Load += new System.EventHandler(this.MainForm_Load);
             this.MenuStrip1.ResumeLayout(false);
             this.MenuStrip1.PerformLayout();
+            this.StatusStrip1.ResumeLayout(false);
+            this.StatusStrip1.PerformLayout();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -137,5 +149,6 @@ namespace TranslationLens
         private System.Windows.Forms.RichTextBox TextsTextBox;
         private System.Windows.Forms.StatusStrip StatusStrip1;
         private System.Windows.Forms.ToolStripMenuItem MemuTranslationText;
+        private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
     }
 }
