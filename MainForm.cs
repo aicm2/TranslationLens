@@ -24,6 +24,11 @@ namespace TranslationLens
         public static extern short GetAsyncKeyState(System.Windows.Forms.Keys vKey);
         private bool flgClick = false;
 
+        private int characterLimit = 5000; // 1回の翻訳で送信できる最大文字数（Google翻訳APIの制限に合わせる）
+        private string spritter = "||| ";// 区切り文字
+
+
+
         private WinFormsTimer clickTimer = new WinFormsTimer();
 
         // ロガーのインスタンスを作成
@@ -220,8 +225,6 @@ namespace TranslationLens
 
             this.TextsTextBox.Text = string.Empty;
             StatusStrip1.Text = string.Empty;
-
-            var spritter = "||| ";// 区切り文字
 
             try
             {
@@ -445,6 +448,16 @@ namespace TranslationLens
             // ボタンは消す
             ReadyButton.Visible = false;
 
+            // 翻訳開始
+            await Translate();
+        }
+
+        /// <summary>
+        /// 翻訳処理
+        /// </summary>
+        /// <returns>Task</returns>
+        private async Task<Bitmap> Translate()
+        {
             ToolStripProgressBar1.Enabled = true;
             ToolStripProgressBar1.Maximum = 100;
 
@@ -452,9 +465,6 @@ namespace TranslationLens
 
             this.TextsTextBox.Text = string.Empty;
             StatusStrip1.Text = string.Empty;
-
-            var spritter = "||| ";// 区切り文字
-
             try
             {
                 this.UseWaitCursor = true;
@@ -511,6 +521,7 @@ namespace TranslationLens
                 SetResltToTextBox(result);
 
                 SetStatus("完了しました。");
+                return bmp;
             }
             catch (OperationCanceledException)
             {
@@ -521,6 +532,7 @@ namespace TranslationLens
                 this.UseWaitCursor = false;
                 cts = null;
             }
+            return null:
         }
     }
 }

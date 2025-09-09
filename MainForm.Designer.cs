@@ -130,12 +130,13 @@ namespace TranslationLens
             // ReadyButton
             // 
             this.ReadyButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.ReadyButton.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(192)))), ((int)(((byte)(255)))), ((int)(((byte)(192)))));
             this.ReadyButton.Location = new System.Drawing.Point(544, 30);
             this.ReadyButton.Name = "ReadyButton";
             this.ReadyButton.Size = new System.Drawing.Size(75, 23);
             this.ReadyButton.TabIndex = 3;
             this.ReadyButton.Text = "翻訳開始";
-            this.ReadyButton.UseVisualStyleBackColor = true;
+            this.ReadyButton.UseVisualStyleBackColor = false;
             this.ReadyButton.Click += new System.EventHandler(this.ReadyButton_Click_Async);
             // 
             // MainForm
