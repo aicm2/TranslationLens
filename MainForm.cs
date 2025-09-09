@@ -8,10 +8,12 @@ using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using TranslationLens.Models;
+using static System.Net.Mime.MediaTypeNames;
 using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using WinFormsTimer = System.Windows.Forms.Timer;
 
@@ -25,7 +27,7 @@ namespace TranslationLens
         private bool flgClick = false;
 
         private int characterLimit = 5000; // 1回の翻訳で送信できる最大文字数（Google翻訳APIの制限に合わせる）
-        private string spritter = "||| ";// 区切り文字
+        private string delimiter = "\\\\\\ ";// 区切り文字
 
 
 
@@ -51,7 +53,7 @@ namespace TranslationLens
             InitializeComponent();
 
             // Formのイニシャル処理で生成する
-        //    formResizer = new FormDragResizer(this, FormDragResizer.ResizeDirection.All, 8);
+            //    formResizer = new FormDragResizer(this, FormDragResizer.ResizeDirection.All, 8);
 
         }
 
@@ -69,7 +71,7 @@ namespace TranslationLens
 
             SetStatus("ようこそ");
 
-            this.clickTimer= new WinFormsTimer();
+            this.clickTimer = new WinFormsTimer();
             this.clickTimer.Tick += Timer1_Tick;
             this.clickTimer.Interval = 300; // 500ミリ秒ごとにチェック
 
@@ -335,7 +337,7 @@ namespace TranslationLens
             // 閉じる
             sr.Close();
 
-            var japaneseList = await this.processor.TranslateListAsync(texts,cts.Token);
+            var japaneseList = await this.processor.TranslateListAsync(texts, cts.Token);
             var result = new List<TranslationResult>();
             for (int i = 0; i < texts.Count; i++)
             {
@@ -365,20 +367,20 @@ namespace TranslationLens
                 var flg = (index + 1) % 3;
                 int start = starts[index];         // ←論理行の正しい開始
                 int length = lines[index].Length;   // ←論理行の長さ
-                // var text = this.TextsTextBox.Lines[index];
-                // Console.WriteLine($"flg = {flg}、index={index}, start={start}, length={length}, text={text}");
-                
+                                                    // var text = this.TextsTextBox.Lines[index];
+                                                    // Console.WriteLine($"flg = {flg}、index={index}, start={start}, length={length}, text={text}");
+
                 var foreColor = Color.Black;
                 // 選択
                 this.TextsTextBox.Select(start, length);
                 if (flg == 1)
                 {
-  //                 Console.WriteLine($"元文行: {this.TextsTextBox.SelectedText}");
+                    //                 Console.WriteLine($"元文行: {this.TextsTextBox.SelectedText}");
                     foreColor = Color.Blue; // 元文行
                 }
                 else if (flg == 2)
                 {
- //                   Console.WriteLine($"訳文行: {this.TextsTextBox.SelectedText}");
+                    //                   Console.WriteLine($"訳文行: {this.TextsTextBox.SelectedText}");
                     // 現在のフォントを取得し、太字スタイルを適用します
                     var font = TextsTextBox.SelectionFont;
                     FontStyle newStyle = font.Style | FontStyle.Bold; // 既存のスタイルに太字を追加
@@ -390,7 +392,7 @@ namespace TranslationLens
                 }
                 else
                 {
-    //                Console.WriteLine($"空行: {this.TextsTextBox.SelectedText}");
+                    //                Console.WriteLine($"空行: {this.TextsTextBox.SelectedText}");
                     foreColor = Color.Gray; // 空行
                 }
 
@@ -402,6 +404,130 @@ namespace TranslationLens
                 this.TextsTextBox.Select(0, 0);
                 this.TextsTextBox.SelectionColor = this.TextsTextBox.ForeColor; // 元に戻す
             }
+        }
+
+        /// <summary>
+        /// 翻訳への送信回数を減らすため、テキストリストをグルーピングする
+        /// </summary>
+        /// <param name="baseList">グルーピングするテキストリスト</param>
+        /// <returns>グループ化した結果</returns>
+        private List<string> GroupingTextList(List<string> baseList)
+        {
+            var ret = new List<string>();
+            var sb = new StringBuilder();
+
+            foreach (var text in baseList)
+            {
+                // もし追加したら制限オーバーになるなら、ここで確定
+                if (sb.Length > 0 && sb.Length + this.delimiter.Length + text.Length > this.characterLimit)
+                {
+                    ret.Add(sb.ToString());
+                    sb.Clear();
+                }
+
+                if (sb.Length > 0)
+                {
+                    sb.Append(this.delimiter);
+                }
+
+                sb.Append(text);
+            }
+
+            // 最後のバッファを追加
+            if (sb.Length > 0)
+            {
+                ret.Add(sb.ToString());
+            }
+
+            return ret;
+        }
+
+        /// <summary>
+        /// 翻訳結果を元のリストに分解する
+        /// </summary>
+        /// <param name="translatedGroups">翻訳後のグループ化された文字列</param>
+        /// <param name="groupSizes">それぞれのグループに含まれる元の要素数</param>
+        /// <returns>元の件数に分割された翻訳結果リスト</returns>
+        private List<string> UngroupingTextList(List<string> translatedGroups, List<int> groupSizes)
+        {
+            var ret = new List<string>();
+            int idx = 0;
+
+            foreach (var group in translatedGroups)
+            {
+                // なんか上手く分割できないんで、前処理してから分割する
+                var text = group.Replace('｜', '|')   // 全角パイプを半角に
+           .Replace("\u200B",string.Empty) // ゼロ幅スペース除去
+           .Normalize(NormalizationForm.FormKC);
+
+                // 分割
+                var parts = SplitByDelimiter(text,this.delimiter).ToList();
+
+                //var buf = parts.Any(x => x.Contains(this.delimiter));
+                // 想定件数とズレる場合は調整
+                if (parts.Count < groupSizes[idx])
+                {
+                    // 足りない → 最後に空文字を追加
+                    while (parts.Count < groupSizes[idx])
+                    {
+                        parts.Add(string.Empty);
+                    }
+                }
+                else if (parts.Count > groupSizes[idx])
+                {
+                    // 多い → 余分を最後の要素にまとめる
+                    var extra = string.Join(" ", parts.Skip(groupSizes[idx] - 1));
+                    parts = parts.Take(groupSizes[idx] - 1).ToList();
+                    parts.Add(extra);
+                }
+
+                ret.AddRange(parts);
+                idx++;
+            }
+
+            return ret;
+        }
+
+        /// <summary>
+        /// 文字列を「文字列で」分割する処理
+        /// </summary>
+        /// <param name="text">分割するテキスト</param>
+        /// <param name="delimiter">区切り文字列</param>
+        /// <returns>分割結果</returns>
+        private List<string> SplitByDelimiter(string text, string delimiter)
+        {
+            var result = new List<string>();
+            int start = 0;
+
+            while (start < text.Length)
+            {
+                int idx = text.IndexOf(delimiter, start, StringComparison.Ordinal);
+                if (idx == -1)
+                {
+                    // 区切り文字が見つからなければ残り全部
+                    result.Add(text.Substring(start));
+                    break;
+                }
+
+                // 区切り文字までの部分を切り出す
+                result.Add(text.Substring(start, idx - start));
+
+                // 次の検索開始位置は区切り文字の直後
+                start = idx + delimiter.Length;
+            }
+
+
+            var errors = result.Where(x => x.Contains(delimiter)).ToList();
+
+            foreach (var err in errors)
+            {
+                // なんか失敗してる
+                Logger.Warn($"SplitByDelimiter: うまく分割できてない。text={err}, delimiter={delimiter}");
+
+                var buf = SplitByDelimiter(err, delimiter);
+            }
+
+            return result;
         }
 
         // 論理行（Lines[i]）の開始位置を全部求める
@@ -495,7 +621,9 @@ namespace TranslationLens
                 await Task.Delay(50);
                 var texts = TextSplitter.SplitSentences(myString);
 
-                Logger.Info($"翻訳対象の文数: {texts.Count}");
+                var sendTexts = GroupingTextList(texts);
+
+                Logger.Info($"翻訳対象の文数: {sendTexts.Count}");
 
                 // プログレスバー初期化（ここからプログレスバーは翻訳専用に使う）
                 ToolStripProgressBar1.Minimum = 0;
@@ -508,7 +636,12 @@ namespace TranslationLens
                 });
 
                 //var japaneseList = await this.processor.TranslateListAsync(texts, cts.Token);
-                var japaneseList = await processor.TranslateListAsync(texts, cts.Token, progress);
+
+                var resultList = await processor.TranslateListAsync(sendTexts, cts.Token, progress);
+
+                var groupSizes = sendTexts.Select(t => t.Split(new[] { this.delimiter }, StringSplitOptions.None).Length).ToList();
+                var translatedTexts = UngroupingTextList(resultList, groupSizes);
+
                 // 結果表示
                 SetStatus("結果の表示中");
 
@@ -516,7 +649,7 @@ namespace TranslationLens
                 for (int i = 0; i < texts.Count; i++)
                 {
                     cts.Token.ThrowIfCancellationRequested();
-                    result.Add(new TranslationResult(texts[i], japaneseList[i]));
+                    result.Add(new TranslationResult(texts[i], translatedTexts[i]));
                 }
                 SetResltToTextBox(result);
 
@@ -532,7 +665,7 @@ namespace TranslationLens
                 this.UseWaitCursor = false;
                 cts = null;
             }
-            return null:
+            return null;
         }
     }
 }

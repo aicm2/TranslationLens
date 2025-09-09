@@ -11,7 +11,7 @@ namespace TranslationLens.Models
     /// </summary>
     public class Configs
     {
-        internal const string ConfigFileName = "TranslationLensConfig.json";
+        internal const string ConfigPath = "TranslationLensConfig.json";
 
         /// <summary>
         /// フォームのロケーションとサイズ

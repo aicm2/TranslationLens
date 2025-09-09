@@ -75,6 +75,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ComicBubbleTranslator.cs" />
+    <Compile Include="CommonMethodLight.cs" />
     <Compile Include="MainForm.cs">
       <SubType>Form</SubType>
     </Compile>

@@ -22,6 +22,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms; // これを追加
 using Tesseract;
+using TranslationLens.Models;
 using static Google.Apis.Requests.BatchRequest;
 
 namespace TranslationLens
@@ -30,6 +31,8 @@ namespace TranslationLens
     {
         // ロガーのインスタンスを作成
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
+
+        internal Configs config = null;
 
         // トークン保存場所
         private string credPath;
@@ -63,6 +66,26 @@ namespace TranslationLens
 
             this.credPath = appFolder;
             Logger.Info("credPath: " + this.credPath);
+
+            this.config = LoadConfig();
+        }
+
+        /// <summary>
+        /// 設定の読み込み
+        /// </summary>
+        /// <returns>設定のインスタンス</returns>
+        private Configs LoadConfig()
+        {
+            var path = Configs.ConfigPath;
+
+            var jsonString = CommonMethodLight.InputUtf8(path);
+
+            if (string.IsNullOrWhiteSpace(jsonString))
+            {
+                return new Configs();
+            }
+
+            return JsonSerializer.Deserialize<Configs>(jsonString);
         }
 
         /// <summary>
