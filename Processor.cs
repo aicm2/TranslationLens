@@ -34,7 +34,8 @@ namespace TranslationLens
         // トークン保存場所
         private string credPath;
 
-        private readonly string gASURL = "https://script.google.com/macros/s/AKfycbwIbppF5BsIZ7BkewR3pXFN_eK0ExnUpy90GNV2JGpgc-hYs0itzDkcDVWdsa_CwEVEFA/exec";
+        // OCR用のgas(現在未使用)
+        // private readonly string gASURL = "https://script.google.com/macros/s/AKfycbwIbppF5BsIZ7BkewR3pXFN_eK0ExnUpy90GNV2JGpgc-hYs0itzDkcDVWdsa_CwEVEFA/exec";
 
         /// <summary>
         /// 翻訳用のgas
@@ -44,14 +45,6 @@ namespace TranslationLens
         private readonly string clientId = "629337539653-pdu7usoru0lb4e7fg83du66i54ph7e4v.apps.googleusercontent.com";
         private readonly string clientSecret = "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";
 
-
-        String filename(String val)
-        {
-            String my_dir = "d:\\user temp\\" + DateTime.Now.ToString("yyyyMMdd") + "\\";
-            String my_file = DateTime.Now.ToString("hhmmss") + DateTime.Now.Millisecond.ToString() + ".jpg";
-            return (my_dir + val + my_file);
-
-        }
 
         internal Processor()
         {
@@ -85,8 +78,6 @@ namespace TranslationLens
             my_graphics.CopyFromScreen(my_rectangle.X, my_rectangle.Y, 0, 0, my_rectangle.Size);
 
             return my_bmp;
-
-            //my_bmp.Save(filename(""), System.Drawing.Imaging.ImageFormat.Jpeg);
         }
 
         /// <summary>
@@ -205,35 +196,45 @@ namespace TranslationLens
             }
         }
 
+        private HttpClient client_t = null;
+
         internal async Task<string> TranslateAsync(string text, string source = "en", string target = "ja")
         {
             if (string.IsNullOrWhiteSpace(text))
                 return null;
 
-            var httpClient = new HttpClient();
+            this.client_t = this.client_t?? new HttpClient();
 
             var url = $"{this.gasURL_T}?text={Uri.EscapeDataString(text)}&source={source}&target={target}";
-            return await httpClient.GetStringAsync(url);
+            return await this.client_t.GetStringAsync(url);
         }
 
-        internal async Task<List<string>> TranslateListAsync(List<string> texts, CancellationToken token, string source = "en", string target = "ja")
+        internal async Task<List<string>> TranslateListAsync(
+            List<string> texts,
+            CancellationToken token,
+            IProgress<int> progress = null,
+            string source = "en",
+            string target = "ja")
         {
             try
             {
-            var results = new List<string>();
-            foreach (var text in texts)
+                var results = new List<string>();
+
+                for (int i = 0; i < texts.Count; i++)
                 {
-                    token.ThrowIfCancellationRequested(); // キャンセルチェック
+                    token.ThrowIfCancellationRequested();
 
-                    var translated = await TranslateAsync(text, source, target);
-                results.Add(translated);
-            }
-            return results;
+                    var translated = await TranslateAsync(texts[i], source, target);
+                    results.Add(translated);
 
+                    // 今何件終わったかを報告（1件目なら1、2件目なら2…）
+                    progress?.Report(i + 1);
+                }
+
+                return results;
             }
             catch (OperationCanceledException)
             {
-                // キャンセル時の処理
                 return null;
             }
             catch (Exception ex)
@@ -273,12 +274,12 @@ namespace TranslationLens
 
                 using (var content = new StringContent(jsonBody, Encoding.UTF8, "application/json"))
                 {
-                    Console.WriteLine("StringContent 作成完了");
+                    Logger.Info("StringContent 作成完了");
 
                     try
                     {
 
-                        Console.WriteLine("送信開始...");
+                        Logger.Info("送信開始...");
                         var response = await client.PostAsync(
                             "https://script.google.com/macros/s/AKfycbzHo2ZjbR4HLiyi5k8HzvwAOWE3iwCQqsGHitY8_QKMGJlILsjq4YDbtaNFYYDyzz8jcg/exec",
                             content
@@ -288,8 +289,8 @@ namespace TranslationLens
                         response.EnsureSuccessStatusCode();
 
                         string result = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
-                        Console.WriteLine("レスポンス取得完了:");
-                        Console.WriteLine(result);
+                        Logger.Info("レスポンス取得完了:");
+                        Logger.Info(result);
                         return result;
                     }
                     catch (Exception ex)

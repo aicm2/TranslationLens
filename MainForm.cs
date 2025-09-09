@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
+using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
@@ -11,6 +12,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using TranslationLens.Models;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using WinFormsTimer = System.Windows.Forms.Timer;
 
 namespace TranslationLens
@@ -59,6 +61,8 @@ namespace TranslationLens
 
             AdjustPanelBounds();
             this.Resize += (s, ev) => AdjustPanelBounds();
+
+            SetStatus("ようこそ");
 
             this.clickTimer= new WinFormsTimer();
             this.clickTimer.Tick += Timer1_Tick;
@@ -206,10 +210,18 @@ namespace TranslationLens
 
         private async void TextsTextBox_DoubleClick_Async(object sender, EventArgs e)
         {
+            /*
+            ToolStripProgressBar1.Enabled = true;
+ //           ToolStripProgressBar1.Style = ProgressBarStyle.Marquee;
+ //           ToolStripProgressBar1.MarqueeAnimationSpeed = 30;
+            ToolStripProgressBar1.Maximum = 100;
+
             cts = new CancellationTokenSource();
 
             this.TextsTextBox.Text = string.Empty;
             StatusStrip1.Text = string.Empty;
+
+            var spritter = "||| ";// 区切り文字
 
             try
             {
@@ -217,25 +229,47 @@ namespace TranslationLens
 
                 // スクリーンショット
                 SetStatus("スクリーンショットを撮っています...");
+                // プログレスバー更新
+                ToolStripProgressBar1.Value += 25;
+
                 await Task.Delay(50);
                 await Task.Yield(); // ← ここで UI を即更新
                 var bmp = TakeScreenshot();
 
                 // OCR
                 SetStatus("OCRを実行しています...");
+                // プログレスバー更新
+                ToolStripProgressBar1.Value += 25;
+
                 await Task.Yield();
                 await Task.Delay(50);
                 var myString = await CallOcr(cts.Token);
 
                 // 翻訳
                 SetStatus("翻訳を実行しています...");
+                // プログレスバー更新
+                ToolStripProgressBar1.Value += 25;
                 await Task.Yield();
                 await Task.Delay(50);
                 var texts = TextSplitter.SplitSentences(myString);
 
-                var japaneseList = await this.processor.TranslateListAsync(texts, cts.Token);
+                Logger.Info($"翻訳対象の文数: {texts.Count}");
 
+                // プログレスバー初期化（ここからプログレスバーは翻訳専用に使う）
+                ToolStripProgressBar1.Minimum = 0;
+                ToolStripProgressBar1.Maximum = texts.Count;
+                ToolStripProgressBar1.Value = 0;
+
+                var progress = new Progress<int>(doneCount =>
+                {
+                    ToolStripProgressBar1.Value = doneCount;
+                });
+
+                //var japaneseList = await this.processor.TranslateListAsync(texts, cts.Token);
+                var japaneseList = await processor.TranslateListAsync(texts, cts.Token, progress);
                 // 結果表示
+                SetStatus("結果の表示中");
+
                 var result = new List<TranslationResult>();
                 for (int i = 0; i < texts.Count; i++)
                 {
@@ -255,6 +289,7 @@ namespace TranslationLens
                 this.UseWaitCursor = false;
                 cts = null;
             }
+            */
         }
 
         /// <summary>
@@ -265,7 +300,7 @@ namespace TranslationLens
         {
             Logger.Debug(text);
             Console.WriteLine(text);
-            StatusStrip1.Text = text;
+            ToolStripStatusLabel1.Text = text;
         }
 
         /// <summary>
@@ -392,6 +427,100 @@ namespace TranslationLens
         private void TextsTextBox_TextChanged(object sender, EventArgs e)
         {
 
+        }
+
+        private void toolStripStatusLabel1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+
+        /// <summary>
+        /// 翻訳開始（Async）
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">e</param>
+        private async void ReadyButton_Click_Async(object sender, EventArgs e)
+        {
+            // ボタンは消す
+            ReadyButton.Visible = false;
+
+            ToolStripProgressBar1.Enabled = true;
+            ToolStripProgressBar1.Maximum = 100;
+
+            cts = new CancellationTokenSource();
+
+            this.TextsTextBox.Text = string.Empty;
+            StatusStrip1.Text = string.Empty;
+
+            var spritter = "||| ";// 区切り文字
+
+            try
+            {
+                this.UseWaitCursor = true;
+
+                // スクリーンショット
+                SetStatus("スクリーンショットを撮っています...");
+                // プログレスバー更新
+                ToolStripProgressBar1.Value += 25;
+
+                await Task.Delay(50);
+                await Task.Yield(); // ← ここで UI を即更新
+                var bmp = TakeScreenshot();
+
+                // OCR
+                SetStatus("OCRを実行しています...");
+                // プログレスバー更新
+                ToolStripProgressBar1.Value += 25;
+
+                await Task.Yield();
+                await Task.Delay(50);
+                var myString = await CallOcr(cts.Token);
+
+                // 翻訳
+                SetStatus("翻訳を実行しています...");
+                // プログレスバー更新
+                ToolStripProgressBar1.Value += 25;
+                await Task.Yield();
+                await Task.Delay(50);
+                var texts = TextSplitter.SplitSentences(myString);
+
+                Logger.Info($"翻訳対象の文数: {texts.Count}");
+
+                // プログレスバー初期化（ここからプログレスバーは翻訳専用に使う）
+                ToolStripProgressBar1.Minimum = 0;
+                ToolStripProgressBar1.Maximum = texts.Count;
+                ToolStripProgressBar1.Value = 0;
+
+                var progress = new Progress<int>(doneCount =>
+                {
+                    ToolStripProgressBar1.Value = doneCount;
+                });
+
+                //var japaneseList = await this.processor.TranslateListAsync(texts, cts.Token);
+                var japaneseList = await processor.TranslateListAsync(texts, cts.Token, progress);
+                // 結果表示
+                SetStatus("結果の表示中");
+
+                var result = new List<TranslationResult>();
+                for (int i = 0; i < texts.Count; i++)
+                {
+                    cts.Token.ThrowIfCancellationRequested();
+                    result.Add(new TranslationResult(texts[i], japaneseList[i]));
+                }
+                SetResltToTextBox(result);
+
+                SetStatus("完了しました。");
+            }
+            catch (OperationCanceledException)
+            {
+                SetStatus("キャンセルされました。");
+            }
+            finally
+            {
+                this.UseWaitCursor = false;
+                cts = null;
+            }
         }
     }
 }

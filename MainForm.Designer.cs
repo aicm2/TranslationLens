@@ -37,7 +37,9 @@ namespace TranslationLens
             this.contextMenuStrip1 = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.TextsTextBox = new System.Windows.Forms.RichTextBox();
             this.StatusStrip1 = new System.Windows.Forms.StatusStrip();
-            this.toolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
+            this.ToolStripStatusLabel1 = new System.Windows.Forms.ToolStripStatusLabel();
+            this.ToolStripProgressBar1 = new System.Windows.Forms.ToolStripProgressBar();
+            this.ReadyButton = new System.Windows.Forms.Button();
             this.MenuStrip1.SuspendLayout();
             this.StatusStrip1.SuspendLayout();
             this.SuspendLayout();
@@ -104,7 +106,8 @@ namespace TranslationLens
             // StatusStrip1
             // 
             this.StatusStrip1.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.toolStripStatusLabel1});
+            this.ToolStripStatusLabel1,
+            this.ToolStripProgressBar1});
             this.StatusStrip1.Location = new System.Drawing.Point(0, 426);
             this.StatusStrip1.Name = "StatusStrip1";
             this.StatusStrip1.Size = new System.Drawing.Size(800, 24);
@@ -112,17 +115,35 @@ namespace TranslationLens
             this.StatusStrip1.Text = "statusStrip1";
             this.StatusStrip1.ItemClicked += new System.Windows.Forms.ToolStripItemClickedEventHandler(this.statusStrip1_ItemClicked);
             // 
-            // toolStripStatusLabel1
+            // ToolStripStatusLabel1
             // 
-            this.toolStripStatusLabel1.Name = "toolStripStatusLabel1";
-            this.toolStripStatusLabel1.Size = new System.Drawing.Size(139, 19);
-            this.toolStripStatusLabel1.Text = "toolStripStatusLabel1";
+            this.ToolStripStatusLabel1.Name = "ToolStripStatusLabel1";
+            this.ToolStripStatusLabel1.Size = new System.Drawing.Size(139, 19);
+            this.ToolStripStatusLabel1.Text = "toolStripStatusLabel1";
+            this.ToolStripStatusLabel1.Click += new System.EventHandler(this.toolStripStatusLabel1_Click);
+            // 
+            // ToolStripProgressBar1
+            // 
+            this.ToolStripProgressBar1.Name = "ToolStripProgressBar1";
+            this.ToolStripProgressBar1.Size = new System.Drawing.Size(100, 18);
+            // 
+            // ReadyButton
+            // 
+            this.ReadyButton.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.ReadyButton.Location = new System.Drawing.Point(544, 30);
+            this.ReadyButton.Name = "ReadyButton";
+            this.ReadyButton.Size = new System.Drawing.Size(75, 23);
+            this.ReadyButton.TabIndex = 3;
+            this.ReadyButton.Text = "翻訳開始";
+            this.ReadyButton.UseVisualStyleBackColor = true;
+            this.ReadyButton.Click += new System.EventHandler(this.ReadyButton_Click_Async);
             // 
             // MainForm
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 12F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(800, 450);
+            this.Controls.Add(this.ReadyButton);
             this.Controls.Add(this.StatusStrip1);
             this.Controls.Add(this.TextsTextBox);
             this.Controls.Add(this.MenuStrip1);
@@ -149,6 +170,8 @@ namespace TranslationLens
         private System.Windows.Forms.RichTextBox TextsTextBox;
         private System.Windows.Forms.StatusStrip StatusStrip1;
         private System.Windows.Forms.ToolStripMenuItem MemuTranslationText;
-        private System.Windows.Forms.ToolStripStatusLabel toolStripStatusLabel1;
+        private System.Windows.Forms.ToolStripStatusLabel ToolStripStatusLabel1;
+        private System.Windows.Forms.ToolStripProgressBar ToolStripProgressBar1;
+        private System.Windows.Forms.Button ReadyButton;
     }
 }
