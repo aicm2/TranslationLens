@@ -100,7 +100,6 @@ namespace TranslationLens
             this.TextsTextBox.Size = new System.Drawing.Size(256, 425);
             this.TextsTextBox.TabIndex = 1;
             this.TextsTextBox.Text = "";
-            this.TextsTextBox.TextChanged += new System.EventHandler(this.TextsTextBox_TextChanged);
             this.TextsTextBox.DoubleClick += new System.EventHandler(this.TextsTextBox_DoubleClick_Async);
             // 
             // StatusStrip1
@@ -120,7 +119,6 @@ namespace TranslationLens
             this.ToolStripStatusLabel1.Name = "ToolStripStatusLabel1";
             this.ToolStripStatusLabel1.Size = new System.Drawing.Size(139, 19);
             this.ToolStripStatusLabel1.Text = "toolStripStatusLabel1";
-            this.ToolStripStatusLabel1.Click += new System.EventHandler(this.toolStripStatusLabel1_Click);
             // 
             // ToolStripProgressBar1
             // 
@@ -151,7 +149,10 @@ namespace TranslationLens
             this.MainMenuStrip = this.MenuStrip1;
             this.Name = "MainForm";
             this.Text = "MainForm";
+            this.FormClosed += new System.Windows.Forms.FormClosedEventHandler(this.MainForm_FormClosed);
             this.Load += new System.EventHandler(this.MainForm_Load);
+            this.Shown += new System.EventHandler(this.MainForm_Shown);
+            this.ResizeEnd += new System.EventHandler(this.MainForm_ResizeEnd);
             this.MenuStrip1.ResumeLayout(false);
             this.MenuStrip1.PerformLayout();
             this.StatusStrip1.ResumeLayout(false);

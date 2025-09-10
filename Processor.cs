@@ -13,6 +13,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
 using System.Security.Authentication;
 using System.Security.Policy;
 using System.Text;
@@ -32,7 +33,7 @@ namespace TranslationLens
         // ロガーのインスタンスを作成
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
 
-        internal Configs config = null;
+        internal Configs Configs { get; set; } = null;
 
         // トークン保存場所
         private string credPath;
@@ -67,7 +68,7 @@ namespace TranslationLens
             this.credPath = appFolder;
             Logger.Info("credPath: " + this.credPath);
 
-            this.config = LoadConfig();
+            this.Configs = LoadConfig();
         }
 
         /// <summary>
@@ -86,6 +87,24 @@ namespace TranslationLens
             }
 
             return JsonSerializer.Deserialize<Configs>(jsonString);
+        }
+
+        /// <summary>
+        /// 設定ファイルを保存する
+        /// </summary>
+        internal void SaveConfig()
+        {
+            if(this.Configs == null)
+            {
+                // 設定のNullクリアを防ぐ
+                return;
+            }
+
+            var path = Configs.ConfigPath;
+
+            var jsonString = JsonSerializer.Serialize(this.Configs);
+
+            CommonMethodLight.OutputUtf8(path, jsonString);
         }
 
         /// <summary>
@@ -275,9 +294,6 @@ namespace TranslationLens
         /// <returns>OCR結果文字列</returns>
         internal async Task<string> OCRByGoogleTest(string imagePath)
         {
-            // TLS 設定はアプリ起動時に1回で十分←設定済
-            // ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
-
             // 既存ハンドラ + ロギング
             var handler = new LoggingHandler(new HttpClientHandler());
 

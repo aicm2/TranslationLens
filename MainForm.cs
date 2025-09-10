@@ -27,7 +27,7 @@ namespace TranslationLens
         private bool flgClick = false;
 
         private int characterLimit = 5000; // 1回の翻訳で送信できる最大文字数（Google翻訳APIの制限に合わせる）
-        private string delimiter = "\\\\\\ ";// 区切り文字
+        private string delimiter = "|||";// 区切り文字
 
 
 
@@ -64,6 +64,8 @@ namespace TranslationLens
             this.Controls.Add(panel);
 
             this.TransparencyKey = Color.Magenta;
+
+
             this.TopMost = true;
 
             AdjustPanelBounds();
@@ -75,6 +77,46 @@ namespace TranslationLens
             this.clickTimer.Tick += Timer1_Tick;
             this.clickTimer.Interval = 300; // 500ミリ秒ごとにチェック
 
+        }
+
+        private void MainForm_Shown(object sender, EventArgs e)
+        {
+            // フォームを配置する
+            SetLocation();
+        }
+
+        /// <summary>
+        /// フォームの位置とサイズを設定する
+        /// </summary>
+        private void SetLocation()
+        {
+            var c = this.processor.Configs;
+
+            if (c == null || c.FormWidth <= 0)
+            {
+                // 無効な設定
+                return;
+            }
+
+            // 位置とサイズを設定する
+            this.Top = c.FormTop;
+            this.Left = c.FormLeft;
+            this.Width = c.FormWidth;
+            this.Height = c.FormHeight;
+        }
+
+        /// <summary>
+        /// フォームの位置とサイズを保存する
+        /// </summary>
+        private void SaveLocation()
+        {
+            var c = this.processor.Configs　?? new Configs();
+
+            // 位置とサイズをk格納する
+            c.FormTop = this.Top;
+            c.FormLeft = this.Left;
+            c.FormWidth = this.Width;
+            c.FormHeight = this.Height;
         }
 
         /// <summary>
@@ -101,15 +143,17 @@ namespace TranslationLens
 
         private void AdjustPanelBounds()
         {
+            // メニューとステータスバーを避けるようにパネルの位置とサイズを調整
             int margin = 8;
             int topOffset = margin + MainMenu.Height; // MenuStripを避ける
+            int bottomOffset = margin + StatusStrip1.Height; // StatusStripを避ける
+
             panel.Bounds = new Rectangle(
                 margin,
                 topOffset,
                 this.ClientSize.Width - TextsTextBox.Width - margin * 2,
-                this.ClientSize.Height - topOffset - margin
+                this.ClientSize.Height - topOffset - bottomOffset
             );
-
         }
 
         /// <summary>
@@ -158,7 +202,7 @@ namespace TranslationLens
 
             this.Invoke((Action)(() =>
             {
-                var texts = TextSplitter.SplitSentences(myString);
+                var texts = SplitSentences(myString);
 
                 Console.WriteLine($"result = {myString}");
                 Console.WriteLine($"----------------------------------------------------------");
@@ -203,6 +247,27 @@ namespace TranslationLens
             }
         }
 
+        /// <summary>
+        /// テキストを文章単にに分割する
+        /// </summary>
+        /// <param name="text">元のテキスト</param>
+        /// <returns>分割したリスト</returns>
+        private List<string> SplitSentences(string text)
+        {
+            switch(this.processor.Configs.SourceLang)
+            {
+                case "en":
+                    return TextSplitter.SplitSentencesEn(text);
+                case "ja":
+                    // 日本語用の分割関数を実装するか、別のライブラリを使用する
+                    // ここでは仮に英語用の関数を使うことにします
+                    return TextSplitter.SplitSentencesEn(text);
+                default:
+                    // デフォルトは英語用の関数を使う
+                    return TextSplitter.SplitSentencesEn(text);
+            }
+        }
+
 
         private void statusStrip1_ItemClicked(object sender, ToolStripItemClickedEventArgs e)
         {
@@ -217,84 +282,6 @@ namespace TranslationLens
 
         private async void TextsTextBox_DoubleClick_Async(object sender, EventArgs e)
         {
-            /*
-            ToolStripProgressBar1.Enabled = true;
- //           ToolStripProgressBar1.Style = ProgressBarStyle.Marquee;
- //           ToolStripProgressBar1.MarqueeAnimationSpeed = 30;
-            ToolStripProgressBar1.Maximum = 100;
-
-            cts = new CancellationTokenSource();
-
-            this.TextsTextBox.Text = string.Empty;
-            StatusStrip1.Text = string.Empty;
-
-            try
-            {
-                this.UseWaitCursor = true;
-
-                // スクリーンショット
-                SetStatus("スクリーンショットを撮っています...");
-                // プログレスバー更新
-                ToolStripProgressBar1.Value += 25;
-
-                await Task.Delay(50);
-                await Task.Yield(); // ← ここで UI を即更新
-                var bmp = TakeScreenshot();
-
-                // OCR
-                SetStatus("OCRを実行しています...");
-                // プログレスバー更新
-                ToolStripProgressBar1.Value += 25;
-
-                await Task.Yield();
-                await Task.Delay(50);
-                var myString = await CallOcr(cts.Token);
-
-                // 翻訳
-                SetStatus("翻訳を実行しています...");
-                // プログレスバー更新
-                ToolStripProgressBar1.Value += 25;
-                await Task.Yield();
-                await Task.Delay(50);
-                var texts = TextSplitter.SplitSentences(myString);
-
-                Logger.Info($"翻訳対象の文数: {texts.Count}");
-
-                // プログレスバー初期化（ここからプログレスバーは翻訳専用に使う）
-                ToolStripProgressBar1.Minimum = 0;
-                ToolStripProgressBar1.Maximum = texts.Count;
-                ToolStripProgressBar1.Value = 0;
-
-                var progress = new Progress<int>(doneCount =>
-                {
-                    ToolStripProgressBar1.Value = doneCount;
-                });
-
-                //var japaneseList = await this.processor.TranslateListAsync(texts, cts.Token);
-                var japaneseList = await processor.TranslateListAsync(texts, cts.Token, progress);
-                // 結果表示
-                SetStatus("結果の表示中");
-
-                var result = new List<TranslationResult>();
-                for (int i = 0; i < texts.Count; i++)
-                {
-                    cts.Token.ThrowIfCancellationRequested();
-                    result.Add(new TranslationResult(texts[i], japaneseList[i]));
-                }
-                SetResltToTextBox(result);
-
-                SetStatus("完了しました。");
-            }
-            catch (OperationCanceledException)
-            {
-                SetStatus("キャンセルされました。");
-            }
-            finally
-            {
-                this.UseWaitCursor = false;
-                cts = null;
-            }
-            */
         }
 
         /// <summary>
@@ -316,8 +303,6 @@ namespace TranslationLens
         private async void TextsTextBox_DoubleClick__Async(object sender, EventArgs e)
         {
             var bmp = TakeScreenshot();
-
-
         }
 
         /// <summary>
@@ -343,16 +328,16 @@ namespace TranslationLens
             {
                 result.Add(new TranslationResult(texts[i], japaneseList[i]));
             }
-            SetResltToTextBox(result);
+            SetResultToTextBox(result);
         }
 
         /// <summary>
         /// 結果をRichTextBoxにセットする
         /// </summary>
         /// <param name="result">結果</param>
-        private void SetResltToTextBox(List<TranslationResult> result)
+        private void SetResultToTextBox(List<TranslationResult> result)
         {
-            this.TextsTextBox.Text = string.Join("\n\n", result);
+            this.TextsTextBox.Text = string.Join("\n", result);
 
             // 行ごとに分解する
             var sp = this.TextsTextBox.Text.Split('\n');
@@ -375,36 +360,66 @@ namespace TranslationLens
                 this.TextsTextBox.Select(start, length);
                 if (flg == 1)
                 {
-                    //                 Console.WriteLine($"元文行: {this.TextsTextBox.SelectedText}");
                     foreColor = Color.Blue; // 元文行
                 }
                 else if (flg == 2)
                 {
-                    //                   Console.WriteLine($"訳文行: {this.TextsTextBox.SelectedText}");
                     // 現在のフォントを取得し、太字スタイルを適用します
-                    var font = TextsTextBox.SelectionFont;
-                    FontStyle newStyle = font.Style | FontStyle.Bold; // 既存のスタイルに太字を追加
-
-                    // 新しいフォントオブジェクトを作成して設定します
-                    TextsTextBox.SelectionFont = new Font(font.FontFamily, font.Size, newStyle);
+                    var font = TextsTextBox.SelectionFont ?? TextsTextBox.Font;
+                    FontStyle newStyle = font.Style | FontStyle.Bold;
+                    TextsTextBox.SelectionFont = new Font(font, newStyle);
 
                     foreColor = Color.Black; // 訳文行
                 }
                 else
                 {
-                    //                Console.WriteLine($"空行: {this.TextsTextBox.SelectedText}");
                     foreColor = Color.Gray; // 空行
                 }
 
                 // 色を変更
                 this.TextsTextBox.SelectionColor = foreColor;
 
-
                 // 選択解除
                 this.TextsTextBox.Select(0, 0);
                 this.TextsTextBox.SelectionColor = this.TextsTextBox.ForeColor; // 元に戻す
             }
+            this.TextsTextBox.Invalidate();        // 再描画
+            this.TextsTextBox.Update();            // 即時描画
         }
+
+        private void MainForm_FormClosed(object sender, FormClosedEventArgs e)
+        {
+            this.processor.SaveConfig();
+        }
+
+        /// <summary>
+        /// formのサイズ変更終了イベント
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">e</param>
+        private void MainForm_ResizeEnd(object sender, EventArgs e)
+        {
+            SaveLocation();
+        }
+
+        /// <summary>
+        /// 翻訳開始（Async）
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">e</param>
+        private async void ReadyButton_Click_Async(object sender, EventArgs e)
+        {
+            // ボタンは消す
+            ReadyButton.Visible = false;
+
+            // 翻訳開始
+            await Translate();
+        }
+
+        // #######################################################
+        // ↑ここまでフォーム上の処理（イベントハンドラとか）
+        // ↓ここからアプリの本体処理
+        // #######################################################
 
         /// <summary>
         /// 翻訳への送信回数を減らすため、テキストリストをグルーピングする
@@ -553,36 +568,12 @@ namespace TranslationLens
             return starts;
         }
 
-        private void TextsTextBox_TextChanged(object sender, EventArgs e)
-        {
-
-        }
-
-        private void toolStripStatusLabel1_Click(object sender, EventArgs e)
-        {
-
-        }
-
-
-        /// <summary>
-        /// 翻訳開始（Async）
-        /// </summary>
-        /// <param name="sender">sender</param>
-        /// <param name="e">e</param>
-        private async void ReadyButton_Click_Async(object sender, EventArgs e)
-        {
-            // ボタンは消す
-            ReadyButton.Visible = false;
-
-            // 翻訳開始
-            await Translate();
-        }
-
         /// <summary>
         /// 翻訳処理
         /// </summary>
+        /// <param name="bmp">スクリーンショット画像</param>
         /// <returns>Task</returns>
-        private async Task<Bitmap> Translate()
+        private async Task<Bitmap> Translate(Bitmap bmp = null)
         {
             ToolStripProgressBar1.Enabled = true;
             ToolStripProgressBar1.Maximum = 100;
@@ -595,14 +586,19 @@ namespace TranslationLens
             {
                 this.UseWaitCursor = true;
 
-                // スクリーンショット
-                SetStatus("スクリーンショットを撮っています...");
+                if (bmp == null)
+                {
+                    // スクリーンショット
+                    SetStatus("スクリーンショットを撮っています...");
+                    await Task.Yield(); // ← ここで UI を即更新
+                    bmp = TakeScreenshot();
+
+                }
+
                 // プログレスバー更新
                 ToolStripProgressBar1.Value += 25;
 
                 await Task.Delay(50);
-                await Task.Yield(); // ← ここで UI を即更新
-                var bmp = TakeScreenshot();
 
                 // OCR
                 SetStatus("OCRを実行しています...");
@@ -619,9 +615,23 @@ namespace TranslationLens
                 ToolStripProgressBar1.Value += 25;
                 await Task.Yield();
                 await Task.Delay(50);
-                var texts = TextSplitter.SplitSentences(myString);
+                var texts = SplitSentences(myString);
+
+                if (texts.Any(x => x.Contains(this.delimiter)))
+                {
+                    // デリミタが含まれていると分割に失敗するので「タブスペース」に変更する
+                    Logger.Warn($"区切り文字 '{this.delimiter}' が翻訳対象に含まれているので、タブ文字に変更しました。");
+                    this.delimiter = "\t";
+                }
 
                 var sendTexts = GroupingTextList(texts);
+
+                // 一度テキストに保存して読み直す
+                var buf = string.Join("\n", sendTexts);
+                CommonMethodLight.OutputUtf8("sendTexts.txt",buf);
+
+                // テキストから読み直す
+                sendTexts = CommonMethodLight.InputUtf8("sendTexts.txt").Split('\n').ToList();
 
                 Logger.Info($"翻訳対象の文数: {sendTexts.Count}");
 
@@ -640,10 +650,18 @@ namespace TranslationLens
                 var resultList = await processor.TranslateListAsync(sendTexts, cts.Token, progress);
 
                 var groupSizes = sendTexts.Select(t => t.Split(new[] { this.delimiter }, StringSplitOptions.None).Length).ToList();
-                var translatedTexts = UngroupingTextList(resultList, groupSizes);
 
                 // 結果表示
                 SetStatus("結果の表示中");
+
+                // 結果をテキストに保存して読み直す
+                buf = string.Join("\n", resultList);
+                CommonMethodLight.OutputUtf8("translated.txt", buf);
+
+　               resultList = CommonMethodLight.InputUtf8("translated.txt").Split('\n').ToList();
+
+                var translatedTexts = UngroupingTextList(resultList, groupSizes);
+
 
                 var result = new List<TranslationResult>();
                 for (int i = 0; i < texts.Count; i++)
@@ -651,7 +669,12 @@ namespace TranslationLens
                     cts.Token.ThrowIfCancellationRequested();
                     result.Add(new TranslationResult(texts[i], translatedTexts[i]));
                 }
-                SetResltToTextBox(result);
+
+                // 最終結果をテキストに保存する
+                buf = string.Join("\n", result);
+                CommonMethodLight.OutputUtf8("resultTexts.txt", buf);
+
+                SetResultToTextBox(result);
 
                 SetStatus("完了しました。");
                 return bmp;
@@ -660,11 +683,23 @@ namespace TranslationLens
             {
                 SetStatus("キャンセルされました。");
             }
+            catch (Exception ex)
+            {
+                var msg = ex.Message + "\n" + ex.StackTrace;
+                MessageBox.Show(msg);
+                Logger.Error(ex, "翻訳処理中にエラーが発生しました。");
+                SetStatus("エラーが発生しました。");
+            }
             finally
             {
+                // フォームのサイズと位置を保存する
+                SaveLocation();
+                // 設定保存
+                this.processor.SaveConfig();
                 this.UseWaitCursor = false;
                 cts = null;
             }
+
             return null;
         }
     }

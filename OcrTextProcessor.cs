@@ -5,14 +5,17 @@ using System.Text.RegularExpressions;
 
 namespace TranslationLens
 {
+    /// <summary>
+    /// テキストを文章ごとに分割するユーティリティクラス
+    /// </summary>
     internal static class TextSplitter
     {
         /// <summary>
-        /// OCRで取得したテキストを文単位に分割する
+        /// OCRで取得したテキストを文単位に分割する（英語用）
         /// </summary>
         /// <param name="text">OCR結果文字列</param>
         /// <returns>文ごとのリスト</returns>
-        public static List<string> SplitSentences(string text)
+        public static List<string> SplitSentencesEn(string text)
         {
             var sentences = new List<string>();
 

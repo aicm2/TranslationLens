@@ -11,6 +11,9 @@ namespace TranslationLens.Models
     /// </summary>
     public class Configs
     {
+        /// <summary>
+        /// コンフィグのパス
+        /// </summary>
         internal const string ConfigPath = "TranslationLensConfig.json";
 
         /// <summary>
@@ -24,5 +27,14 @@ namespace TranslationLens.Models
 
         public int FormHeight { get; set; } = 0;
 
+        /// <summary>
+        /// 翻訳元言語コード (デフォルト: "en" - 英語)
+        /// </summary>
+        public string SourceLang { get; set; } = "en";
+
+        /// <summary>
+        /// 翻訳先,言語コード (デフォルト: "ja" - 日本語)
+        /// </summary>
+        public string TargetLang { get; set; } = "ja";
     }
 }
