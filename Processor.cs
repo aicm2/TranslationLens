@@ -2,29 +2,20 @@ using Google.Apis.Auth.OAuth2;
 using Google.Apis.Drive.v3;
 using Google.Apis.Http;
 using Google.Apis.Services;
-using Google.Apis.Upload;
 using Google.Apis.Util.Store;
-using NLog.Targets;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 using System.Net;
 using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Runtime.CompilerServices;
 using System.Security.Authentication;
-using System.Security.Policy;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Nodes;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms; // これを追加
-using Tesseract;
 using TranslationLens.Models;
-using static Google.Apis.Requests.BatchRequest;
 
 namespace TranslationLens
 {
@@ -94,7 +85,7 @@ namespace TranslationLens
         /// </summary>
         internal void SaveConfig()
         {
-            if(this.Configs == null)
+            if (this.Configs == null)
             {
                 // 設定のNullクリアを防ぐ
                 return;
@@ -240,17 +231,33 @@ namespace TranslationLens
 
         private HttpClient client_t = null;
 
+        /// <summary>
+        /// テキスト翻訳の処置（非同期）
+        /// </summary>
+        /// <param name="text">元テキスト</param>
+        /// <param name="source">翻訳元の言語</param>
+        /// <param name="target">翻訳先の言語</param>
+        /// <returns>翻訳結果</returns>
         internal async Task<string> TranslateAsync(string text, string source = "en", string target = "ja")
         {
             if (string.IsNullOrWhiteSpace(text))
                 return null;
 
-            this.client_t = this.client_t?? new HttpClient();
+            this.client_t = this.client_t ?? new HttpClient();
 
             var url = $"{this.gasURL_T}?text={Uri.EscapeDataString(text)}&source={source}&target={target}";
             return await this.client_t.GetStringAsync(url);
         }
 
+        /// <summary>
+        /// テキストリスト翻訳の処置（非同期）
+        /// </summary>
+        /// <param name="texts">元テキストリスト</param>
+        /// >param name="token">キャンセルトークン
+        /// <param name="progress">進捗報告用</param>
+        /// <param name="source">翻訳元の言語</param>
+        /// <param name="target">翻訳先の言語</param>
+        /// <returns>翻訳結果のリスト</returns>
         internal async Task<List<string>> TranslateListAsync(
             List<string> texts,
             CancellationToken token,
@@ -342,69 +349,67 @@ namespace TranslationLens
             }
         }
 
+    }
 
+    /// <summary>
+    /// 既存の HttpClient を DriveService に渡すためのファクトリ
+    /// </summary>
+    public class CustomHttpClientFactory : IHttpClientFactory
+    {
+        private readonly HttpMessageHandler _baseHandler;
 
-        /// <summary>
-        /// 既存の HttpClient を DriveService に渡すためのファクトリ
-        /// </summary>
-        public class CustomHttpClientFactory : IHttpClientFactory
+        public CustomHttpClientFactory()
         {
-            private readonly HttpMessageHandler _baseHandler;
-
-            public CustomHttpClientFactory()
+            // 内側の HttpClientHandler に TLS 1.2 を指定
+            var httpHandler = new HttpClientHandler
             {
-                // 内側の HttpClientHandler に TLS 1.2 を指定
-                var httpHandler = new HttpClientHandler
-                {
-                    SslProtocols = SslProtocols.Tls12,
-                    UseProxy = true,
-                    Proxy = WebRequest.DefaultWebProxy,
-                    UseDefaultCredentials = true
-                };
+                SslProtocols = SslProtocols.Tls12,
+                UseProxy = true,
+                Proxy = WebRequest.DefaultWebProxy,
+                UseDefaultCredentials = true
+            };
 
-                // LoggingHandler でラップ
-                _baseHandler = new LoggingHandler(httpHandler);
-            }
-
-            public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args)
-            {
-                // ConfigurableHttpClient にハンドラを渡す
-                return new ConfigurableHttpClient(new ConfigurableMessageHandler(_baseHandler));
-            }
+            // LoggingHandler でラップ
+            _baseHandler = new LoggingHandler(httpHandler);
         }
 
-        /// <summary>
-        /// HTTP リクエスト/レスポンスをログ出力するハンドラ
-        /// </summary>
-        public class LoggingHandler : DelegatingHandler
+        public ConfigurableHttpClient CreateHttpClient(CreateHttpClientArgs args)
         {
-            public LoggingHandler(HttpMessageHandler innerHandler) : base(innerHandler) { }
+            // ConfigurableHttpClient にハンドラを渡す
+            return new ConfigurableHttpClient(new ConfigurableMessageHandler(_baseHandler));
+        }
+    }
+    /// <summary>
+    /// HTTP リクエスト/レスポンスをログ出力するハンドラ
+    /// </summary>
+    public class LoggingHandler : DelegatingHandler
+    {
+        public LoggingHandler(HttpMessageHandler innerHandler) : base(innerHandler) { }
 
-            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            // リクエスト情報
+            Console.WriteLine($"[Request] {request.Method} {request.RequestUri}");
+
+            if (request.Content != null)
             {
-                // リクエスト情報
-                Console.WriteLine($"[Request] {request.Method} {request.RequestUri}");
-
-                if (request.Content != null)
-                {
-                    var length = request.Content.Headers.ContentLength ?? -1;
-                    Console.WriteLine($"[Request Content] {length} バイトのデータ");
-                }
-
-                // リクエスト送信
-                var response = await base.SendAsync(request, cancellationToken);
-
-                // レスポンス情報
-                Console.WriteLine($"[Response] {(int)response.StatusCode} {response.ReasonPhrase}");
-
-                if (response.Content != null)
-                {
-                    var length = response.Content.Headers.ContentLength ?? -1;
-                    Console.WriteLine($"[Response Content] {length} バイトのデータ");
-                }
-
-                return response;
+                var length = request.Content.Headers.ContentLength ?? -1;
+                Console.WriteLine($"[Request Content] {length} バイトのデータ");
             }
+
+            // リクエスト送信
+            var response = await base.SendAsync(request, cancellationToken);
+
+            // レスポンス情報
+            Console.WriteLine($"[Response] {(int)response.StatusCode} {response.ReasonPhrase}");
+
+            if (response.Content != null)
+            {
+                var length = response.Content.Headers.ContentLength ?? -1;
+                Console.WriteLine($"[Response Content] {length} バイトのデータ");
+            }
+
+            return response;
         }
     }
 }

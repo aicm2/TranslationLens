@@ -1,20 +1,16 @@
+using NLog;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Data;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using TranslationLens.Models;
-using static System.Net.Mime.MediaTypeNames;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 using WinFormsTimer = System.Windows.Forms.Timer;
 
 namespace TranslationLens
@@ -29,8 +25,20 @@ namespace TranslationLens
         private int characterLimit = 5000; // 1回の翻訳で送信できる最大文字数（Google翻訳APIの制限に合わせる）
         private string delimiter = "|||";// 区切り文字
 
+        // 自動スナップ用タイマー
+        private WinFormsTimer snapTimer = new WinFormsTimer();
 
+        // 最後に翻訳したスクリーンショット画像
+        private Bitmap lastSnap = null;
 
+        // 翻訳処理中フラグ。 trueの間は次の翻訳処理を受け付けない
+        private bool IsProcessing = false;
+
+        // 自動スクリーンショットに対する処理を開始したかどうかのフラグ
+        //（連続して自動スクリーンショットは撮らない）
+        private bool IsStartProcess = false;
+
+        // 画面外クリック検出用タイマー
         private WinFormsTimer clickTimer = new WinFormsTimer();
 
         // ロガーのインスタンスを作成
@@ -73,10 +81,18 @@ namespace TranslationLens
 
             SetStatus("ようこそ");
 
+            // 画面外クリック検出用タイマーの設定
             this.clickTimer = new WinFormsTimer();
-            this.clickTimer.Tick += Timer1_Tick;
+            this.clickTimer.Tick += ClickTimer_Tick;
             this.clickTimer.Interval = 300; // 500ミリ秒ごとにチェック
+            this.clickTimer.Start();
 
+            // 自動スナップ用タイマーの設定
+            this.snapTimer = new WinFormsTimer();
+            this.snapTimer.Tick += SnapTimer_Tick;
+            this.snapTimer.Interval = 1000; // 1000ミリ秒ごとにチェック
+            this.snapTimer.Start();
+            
         }
 
         private void MainForm_Shown(object sender, EventArgs e)
@@ -124,20 +140,58 @@ namespace TranslationLens
         /// </summary>
         /// <param name="sender">sender</param>
         /// <param name="e">e</param>
-        private void Timer1_Tick(object sender, EventArgs e)
+        private void ClickTimer_Tick(object sender, EventArgs e)
         {
             if (GetAsyncKeyState(Keys.LButton) != 0)
             {
+                if (CusolOnForm())
+                {
+                    // フォーム上がクリックされた
+                    return;
+                }
+
                 if (flgClick == false)
                 {
                     // 画面外がクリックされた
                     StatusStrip1.Text = "画面外クリック検出";
                     flgClick = true;
+ //                   MessageBox.Show(this,"画面外クリック検出", "画面外クリックを検出しました。");
                 }
             }
             else
             {
                 flgClick = false;
+            }
+        }
+
+        /// <summary>
+        /// マウスカーソルがフォーム上にあるかどうかを調べる
+        /// </summary>
+        /// <returns>フォーム上にある</returns>
+        private bool CusolOnForm()
+        {   var ret = false;
+            var pos = System.Windows.Forms.Cursor.Position;
+
+            if (pos.X >= this.Left && pos.X <= this.Right && pos.Y >= this.Top && pos.Y <= this.Bottom)
+            {
+                ret = true;
+            }
+            return ret;
+        }
+
+        /// <summary>
+        /// 自動スナップ用タイマー
+        /// </summary>
+        /// <param name="sender">sender</param>
+        /// <param name="e">e</param>
+        private void SnapTimer_Tick(object sender, EventArgs e)
+        {
+            if (!this.IsProcessing && !this.IsStartProcess)
+            {
+                // 処理中でない場合
+
+                // 新しいスクリーンショットを撮る
+                var newSnap = TakeScreenshot();
             }
         }
 
@@ -413,7 +467,7 @@ namespace TranslationLens
             ReadyButton.Visible = false;
 
             // 翻訳開始
-            await Translate();
+            this.lastSnap = await Translate();
         }
 
         // #######################################################
@@ -575,6 +629,9 @@ namespace TranslationLens
         /// <returns>Task</returns>
         private async Task<Bitmap> Translate(Bitmap bmp = null)
         {
+            // 実行中フラグを立てる
+            this.IsProcessing = true;
+
             ToolStripProgressBar1.Enabled = true;
             ToolStripProgressBar1.Maximum = 100;
 
@@ -592,7 +649,6 @@ namespace TranslationLens
                     SetStatus("スクリーンショットを撮っています...");
                     await Task.Yield(); // ← ここで UI を即更新
                     bmp = TakeScreenshot();
-
                 }
 
                 // プログレスバー更新
@@ -694,13 +750,61 @@ namespace TranslationLens
             {
                 // フォームのサイズと位置を保存する
                 SaveLocation();
+
+                // 一時ファイルを履歴フォルダに移動する
+                this.processor.Configs.HistoryFolderNames.Add(MoveToHistory());
+
                 // 設定保存
                 this.processor.SaveConfig();
                 this.UseWaitCursor = false;
                 cts = null;
+
+                // 実行中フラグを消す
+                this.IsProcessing = false;
             }
 
             return null;
+        }
+
+
+        /// <summary>
+        /// 翻訳時に出力した画像とテキストを履歴フォルダに移動する
+        /// </summary>
+        /// <returns>移動先フォルダ</returns>
+        private string MoveToHistory()
+        {
+            var dir = string.Empty;
+            var tempDir = Path.GetTempPath();
+            dir = Path.Combine(tempDir, "TranslationLens");
+            var date = DateTime.Now.ToString("yyyyMMddHHmmssfff");
+            dir = Path.Combine(dir, date);
+
+            var fileList = new List<string>()
+            {
+                "screenshot.png",
+                "sendTexts.txt",
+                "translated.txt",
+                "resultTexts.txt",
+            };
+
+            foreach (var file in fileList)
+            {
+                var src = Path.Combine(Directory.GetCurrentDirectory(), file);
+                if (File.Exists(src))
+                {
+                    if (!Directory.Exists(dir))
+                    {
+                        Directory.CreateDirectory(dir);
+                    }
+                    var dest = Path.Combine(dir, file);
+                    File.Move(src, dest);
+                }
+            }
+
+            Logger.Info("履歴フォルダ: " + dir);
+            return dir;
+
+
         }
     }
 }

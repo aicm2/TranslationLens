@@ -28,6 +28,11 @@ namespace TranslationLens.Models
         public int FormHeight { get; set; } = 0;
 
         /// <summary>
+        /// 翻訳の際に履歴を保存したフォルダ名のリスト
+        /// </summary>
+        public List<string> HistoryFolderNames { get; set; } = new List<string>();
+
+        /// <summary>
         /// 翻訳元言語コード (デフォルト: "en" - 英語)
         /// </summary>
         public string SourceLang { get; set; } = "en";

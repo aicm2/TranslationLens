@@ -7,9 +7,10 @@ using System.Drawing.Imaging;
 public class ComicBubbleTranslator
 {
     /// <summary>
-    /// 画像から吹き出しを検出して List に格納する
+    /// 【未使用】画像から吹き出しを検出して List に格納する
     /// C# 7.3 / .NET Framework 4.6.1 以上対応
     /// </summary>
+    /// <returns>Bitmap</returns>
     public List<Bitmap> TranslateBubbles(string imagePath)
     {
         List<Bitmap> bubbles = new List<Bitmap>();
@@ -72,7 +73,7 @@ public class ComicBubbleTranslator
     }
 
     /// <summary>
-    /// OpenCvSharp Mat → System.Drawing.Bitmap 変換 (24bit RGB)
+    /// 【未使用】OpenCvSharp Mat → System.Drawing.Bitmap 変換 (24bit RGB)
     /// </summary>
     private static Bitmap MatToBitmap(Mat mat)
     {
