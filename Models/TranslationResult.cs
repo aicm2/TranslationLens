@@ -32,7 +32,7 @@ namespace TranslationLens.Models
         /// <returns>文字列</returns>
         public override string ToString()
         {
-            return $"{sourceText}\n{resultText}";
+            return $"{sourceText}\n{resultText}\n";
         }
 
     }

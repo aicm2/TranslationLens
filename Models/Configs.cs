@@ -33,6 +33,11 @@ namespace TranslationLens.Models
         public List<string> HistoryFolderNames { get; set; } = new List<string>();
 
         /// <summary>
+        /// 画像の類似度判定に使う閾値
+        /// </summary>
+        public float DifferentThreshold { get; set; } = 99.0f;
+
+        /// <summary>
         /// 翻訳元言語コード (デフォルト: "en" - 英語)
         /// </summary>
         public string SourceLang { get; set; } = "en";

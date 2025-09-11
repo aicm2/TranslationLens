@@ -19,7 +19,10 @@ using TranslationLens.Models;
 
 namespace TranslationLens
 {
-    internal class Processor
+    /// <summary>
+    /// 処理クラスの主にHTTP処理部分
+    /// </summary>
+    internal partial class Processor
     {
         // ロガーのインスタンスを作成
         private static readonly NLog.Logger Logger = NLog.LogManager.GetCurrentClassLogger();
@@ -379,6 +382,7 @@ namespace TranslationLens
             return new ConfigurableHttpClient(new ConfigurableMessageHandler(_baseHandler));
         }
     }
+
     /// <summary>
     /// HTTP リクエスト/レスポンスをログ出力するハンドラ
     /// </summary>

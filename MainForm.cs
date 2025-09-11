@@ -91,7 +91,6 @@ namespace TranslationLens
             this.snapTimer = new WinFormsTimer();
             this.snapTimer.Tick += SnapTimer_Tick;
             this.snapTimer.Interval = 1000; // 1000ミリ秒ごとにチェック
-            this.snapTimer.Start();
             
         }
 
@@ -184,14 +183,48 @@ namespace TranslationLens
         /// </summary>
         /// <param name="sender">sender</param>
         /// <param name="e">e</param>
-        private void SnapTimer_Tick(object sender, EventArgs e)
+        private async void SnapTimer_Tick(object sender, EventArgs e)
         {
+            if(this.lastSnap == null)
+            {
+                return;
+            }
+
             if (!this.IsProcessing && !this.IsStartProcess)
             {
                 // 処理中でない場合
 
                 // 新しいスクリーンショットを撮る
                 var newSnap = TakeScreenshot();
+
+                if (!this.processor.IsDifferentImages(this.lastSnap, newSnap))
+                {
+                    // 画像は変わっていない
+                    return;
+                }
+
+                // 画像に差分があった
+
+                Logger.Info("ページが切り替わった");
+                SetStatus("ページが変わりました。");
+
+                // 念のため、ここでもフラグを立てる
+                this.IsStartProcess = true;
+
+                try
+                {
+                    // 翻訳を行う
+                    this.lastSnap = await Translate(newSnap);
+                }
+                catch(Exception ex)
+                {
+                    Logger.Error(ex);
+                    MessageBox.Show(this, ex.Message);
+                }
+
+
+                // 念のため、ここでフラグを落とす
+                this.IsStartProcess = false;
             }
         }
 
@@ -466,6 +499,9 @@ namespace TranslationLens
             // ボタンは消す
             ReadyButton.Visible = false;
 
+            // 自動スナップ処理を停止
+            this.snapTimer.Stop();
+
             // 翻訳開始
             this.lastSnap = await Translate();
         }
@@ -727,17 +763,24 @@ namespace TranslationLens
                 }
 
                 // 最終結果をテキストに保存する
-                buf = string.Join("\n", result);
+                buf = string.Join("\n\n", result);
                 CommonMethodLight.OutputUtf8("resultTexts.txt", buf);
 
                 SetResultToTextBox(result);
 
                 SetStatus("完了しました。");
+                // 自動スナップ処理を開始
+                this.snapTimer.Start();
+
+
                 return bmp;
             }
             catch (OperationCanceledException)
             {
                 SetStatus("キャンセルされました。");
+                // ボタンを再表示する
+                ReadyButton.Visible =true;
+
             }
             catch (Exception ex)
             {
@@ -745,6 +788,9 @@ namespace TranslationLens
                 MessageBox.Show(msg);
                 Logger.Error(ex, "翻訳処理中にエラーが発生しました。");
                 SetStatus("エラーが発生しました。");
+                // ボタンを再表示する
+                ReadyButton.Visible = true;
+
             }
             finally
             {
